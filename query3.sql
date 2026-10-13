@@ -1,6 +1,9 @@
-select e.employeenumber, e.lastname
-from employees e
-	join employees m on e.reportsto = m.employeenumber 
-	join employees d on m.reportsto = d.employeenumber 
-where d.reportsto is null
-group by e.employeenumber;
+SELECT
+    e.employeenumber,
+    e.lastname
+FROM employees AS e
+JOIN employees AS m
+    ON e.reportsto = m.employeenumber
+JOIN employees AS d
+    ON m.reportsto = d.employeenumber
+WHERE d.reportsto IS NULL;
