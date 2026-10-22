@@ -8,8 +8,8 @@
 //#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \            //mac Velasco
 //        "pwd=alumnodb;server=host.docker.internal;port=5432;database=classicmodels_new"
 
-//#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \            //alex en ubuntu
-//        "pwd=alumnodb;server=localhost;database=test01"
+#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \          
+        "pwd=alumnodb;server=localhost;database=test01"                     //Alex
 
 
 /* report most recient error */

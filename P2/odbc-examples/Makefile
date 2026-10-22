@@ -6,7 +6,7 @@ export PGDATABASE:=classicmodels_new
 export PGUSER :=alumnodb
 export PGPASSWORD :=alumnodb
 export PGCLIENTENCODING:=LATIN9
-export PGHOST:=host.docker.internal
+export PGHOST:=host.docker.internal #localhost
 
 DBNAME =$(PGDATABASE)
 PSQL = psql
