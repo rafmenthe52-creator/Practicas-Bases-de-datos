@@ -25,12 +25,7 @@ static void ShowOrdersMenu();
 static int ShowOrdersSubMenu();
 static void ShowCustomersMenu();
 static int ShowCustomersSubMenu();
-static void PrintZub();
-static void PrintBigFatGit();
-static void PrintAliens();
-static void PrintMary();
-static void PrintJack();
-static void PrintLittleBoPeep();
+
 
 /* #endif //A2BIS_MENU_TEMPLATE_H */
 
@@ -277,6 +272,17 @@ void ShowOrdersMenu() {
     return nSelected;
 }
 
+/**
+ * @brief Shows and processes the fairy menu.
+ *
+ * This function implements a loop that prints the fairy
+ * menu, analyze the user selection and prints
+ * the selected fairy tail
+ *
+ * @return selected option
+ * @author rmarabini
+ */
+
 void ShowCustomersMenu() {
     int nChoice = 0;
 
@@ -284,17 +290,17 @@ void ShowCustomersMenu() {
         nChoice = ShowCustomersSubMenu();
         switch (nChoice) {
             case 1: {
-                PrintOpen();
+                PrintFind();
             }
                 break;
 
             case 2: {
-                PrintRange();
+                PrintListProducts();
             }
                 break;
 
             case 3: {
-                PrintDetail();
+                PrintBalance();
             }
                 break;
 
@@ -305,6 +311,40 @@ void ShowCustomersMenu() {
         }
     } while (nChoice != 4);
 
+}
+
+/**
+ * @brief prints the fairy menu and allows to select an option.
+ *
+ * @return selected option
+ * @author rmarabini
+ */
+ int ShowCustomersSubMenu() {
+    int nSelected = 0;
+    char buf[16];
+
+    do {
+
+        printf(" (1) Find\n"
+               " (2) List Products\n"
+               " (3) Balance\n"
+               " (4) Back\n\n");
+
+        printf("Enter a number that corresponds to your choice > ");
+        if (!fgets(buf, 16, stdin))
+            /* reading input failed, give up: */
+            nSelected =0;
+        else
+            /* have some input, convert it to integer: */
+            nSelected = atoi(buf);
+        printf("\n");
+
+        if ((nSelected < 1) || (nSelected > 4)) {
+            printf("You have entered an invalid choice. Please try again\n\n\n");
+        }
+    } while ((nSelected < 1) || (nSelected > 4));
+
+    return nSelected;
 }
 
 /**
