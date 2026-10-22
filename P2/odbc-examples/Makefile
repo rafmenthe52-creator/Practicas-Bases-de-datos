@@ -2,11 +2,11 @@ CC = gcc -g
 CFLAGS = -Wall -Wextra -pedantic #-ansi
 LDLIBS = -lodbc
 
-export PGDATABASE:=test01
+export PGDATABASE:=classicmodels_new
 export PGUSER :=alumnodb
 export PGPASSWORD :=alumnodb
 export PGCLIENTENCODING:=LATIN9
-export PGHOST:=localhost
+export PGHOST:=host.docker.internal
 
 DBNAME =$(PGDATABASE)
 PSQL = psql
