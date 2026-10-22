@@ -5,8 +5,12 @@
 #include <sqlext.h>
 
 /* CONNECTION PARAMETERS, ADAPT TO YOUR SCENARIO */
-#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \
-        "pwd=alumnodb;server=localhost;database=test01"
+//#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \            //mac Velasco
+//        "pwd=alumnodb;server=host.docker.internal;port=5432;database=classicmodels_new"
+
+//#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \            //alex en ubuntu
+//        "pwd=alumnodb;server=localhost;database=test01"
+
 
 /* report most recient error */
 void odbc_extract_error(char *fn, SQLHANDLE handle, SQLSMALLINT type);
