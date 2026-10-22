@@ -1,5 +1,5 @@
-#ifndef AUX_H
-#define AUX_H
+#ifndef ODBC_H
+#define ODBC_H
 
 #include <sql.h>
 #include <sqlext.h>
