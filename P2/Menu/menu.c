@@ -19,10 +19,12 @@
  * */
 
 static int ShowMainMenu();
-static void ShowRhymeMenu();
-static int ShowRhymeSubMenu();
-static void ShowFairyMenu();
-static int ShowFairySubMenu();
+static void ShowProductsMenu();
+static int ShowProductsSubMenu();
+static void ShowOrdersMenu();
+static int ShowOrdersSubMenu();
+static void ShowCustomersMenu();
+static int ShowCustomersSubMenu();
 static void PrintZub();
 static void PrintBigFatGit();
 static void PrintAliens();
@@ -65,16 +67,21 @@ int main(void) {
         nChoice = ShowMainMenu();
         switch (nChoice) {
             case 1: {
-                ShowRhymeMenu();
+                ShowProductsMenu();
             }
                 break;
 
             case 2: {
-                ShowFairyMenu();
+                ShowOrdersMenu();
+            }
+                break;
+            
+            case 3: {
+                ShowCustomersMenu();
             }
                 break;
 
-            case 3: {
+            case 4: {
                 printf("Bye Bye\n\n");
             }
                 break;
@@ -104,9 +111,10 @@ int ShowMainMenu() {
         printf("This is a nursery rhyme and fairy stories program\n");
         printf("You can choose to display a number of different nursery rhymes and fairy stories\n\n");
 
-        printf(" (1) Nursery rhymes\n"
-               " (2) Fairy stories\n"
-               " (3) Quit\n\n"
+        printf(" (1) Products\n"
+               " (2) Orders\n"
+               " (3) Customers\n"
+               " (4) Exit\n\n"
                "Enter a number that corresponds to your choice > ");
         if (!fgets(buf, 16, stdin))
             /* reading input failed, give up: */
@@ -116,10 +124,10 @@ int ShowMainMenu() {
             nSelected = atoi(buf);
         printf("\n");
 
-        if ((nSelected < 1) || (nSelected > 3)) {
+        if ((nSelected < 1) || (nSelected > 4)) {
             printf("You have entered an invalid choice. Please try again\n\n\n");
         }
-    } while ((nSelected < 1) || (nSelected > 3));
+    } while ((nSelected < 1) || (nSelected > 4));
 
     return nSelected;
 }
@@ -134,33 +142,28 @@ int ShowMainMenu() {
  * @author rmarabini
  */
 
-void ShowRhymeMenu() {
+void ShowProductsMenu() {
     int nChoice = 0;
     do {
-        nChoice = ShowRhymeSubMenu();
+        nChoice = ShowProductsSubMenu();
         switch (nChoice) {
 
             case 1: {
-                PrintMary();
+                PrintStock();
             }
                 break;
 
             case 2: {
-                PrintJack();
+                PrintFind();
             }
                 break;
 
             case 3: {
-                PrintLittleBoPeep();
-            }
-                break;
-
-            case 4: {
                 printf("Bye Bye\n\n");
             }
                 break;
         }
-    } while (nChoice != 4);
+    } while (nChoice != 3);
 
 }
 
@@ -171,16 +174,15 @@ void ShowRhymeMenu() {
  * @author rmarabini
  */
 
- int ShowRhymeSubMenu() {
+ int ShowProductsSubMenu() {
     int nSelected = 0;
     char buf[16];
 
     do {
 
-        printf(" (1) Mary had a little lamb\n"
-               " (2) Jack and Jill\n"
-               " (3) Little Bo Peep\n"
-               " (4) Quit\n\n");
+        printf(" (1) Stock\n"
+               " (2) Find\n"
+               " (3) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
         if (!fgets(buf, 16, stdin))
@@ -192,10 +194,10 @@ void ShowRhymeMenu() {
         printf("\n");
 
 
-        if ((nSelected < 1) || (nSelected > 4)) {
+        if ((nSelected < 1) || (nSelected > 3)) {
             printf("You have entered an invalid choice. Please try again\n\n\n");
         }
-    } while ((nSelected < 1) || (nSelected > 4));
+    } while ((nSelected < 1) || (nSelected > 3));
 
     return nSelected;
 }
@@ -211,24 +213,24 @@ void ShowRhymeMenu() {
  * @author rmarabini
  */
 
-void ShowFairyMenu() {
+void ShowOrdersMenu() {
     int nChoice = 0;
 
     do {
-        nChoice = ShowFairySubMenu();
+        nChoice = ShowOrdersSubMenu();
         switch (nChoice) {
             case 1: {
-                PrintZub();
+                PrintOpen();
             }
                 break;
 
             case 2: {
-                PrintBigFatGit();
+                PrintRange();
             }
                 break;
 
             case 3: {
-                PrintAliens();
+                PrintDetail();
             }
                 break;
 
@@ -247,16 +249,16 @@ void ShowFairyMenu() {
  * @return selected option
  * @author rmarabini
  */
- int ShowFairySubMenu() {
+ int ShowOrdersSubMenu() {
     int nSelected = 0;
     char buf[16];
 
     do {
 
-        printf(" (1) The zub zubs\n"
-               " (2) The BFG\n"
-               " (3) PrintAliens\n"
-               " (4) Quit\n\n");
+        printf(" (1) Open\n"
+               " (2) Range\n"
+               " (3) Detail\n"
+               " (4) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
         if (!fgets(buf, 16, stdin))
@@ -273,6 +275,36 @@ void ShowFairyMenu() {
     } while ((nSelected < 1) || (nSelected > 4));
 
     return nSelected;
+}
+
+void ShowCustomersMenu() {
+    int nChoice = 0;
+
+    do {
+        nChoice = ShowCustomersSubMenu();
+        switch (nChoice) {
+            case 1: {
+                PrintOpen();
+            }
+                break;
+
+            case 2: {
+                PrintRange();
+            }
+                break;
+
+            case 3: {
+                PrintDetail();
+            }
+                break;
+
+            case 4: {
+                printf("Bye Bye\n\n");
+            }
+                break;
+        }
+    } while (nChoice != 4);
+
 }
 
 /**
