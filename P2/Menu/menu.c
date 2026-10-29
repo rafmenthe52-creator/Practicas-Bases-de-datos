@@ -415,7 +415,14 @@ int FindCustomers(char *name)
         return ret;
     }
 
-    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &name, 0, NULL);
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, strlen(name), 0, &name, 0, NULL);
+    SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,  SQL_C_CHAR, SQL_VARCHAR, strlen(name), 0, name, 0, NULL);
+
+    SQLExecute(stmt);
+
+    SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) , , NULL);
+
+    ret = SQLFetch(stmt);
                                 
         
     ret = odbc_disconnect(env, dbc);
