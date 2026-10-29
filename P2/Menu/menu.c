@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <odbc.h>
+#include <sql.h>
+#include <sqlext.h>
 
 /* #include "menu_template.h" */
 /* #ifndef A2BIS_MENU_TEMPLATE_H */
@@ -56,7 +59,14 @@ static int ShowCustomersSubMenu();
  * @author rmarabini
  */
 int main(void) {
+    SQLHENV env = NULL;
+    SQLHDBC dbc = NULL;
     int nChoice = 0;
+
+    if (!SQL_SUCCEEDED(odbc_connect(&env, &dbc))) {
+        fprintf(stderr, "Error conectando a la base de datos.\n");
+        return EXIT_FAILURE;
+    }
 
     do {
         nChoice = ShowMainMenu();
@@ -81,7 +91,9 @@ int main(void) {
             }
                 break;
         }
-    } while (nChoice != 3);
+    } while (nChoice != 4);
+
+    (void) odbc_disconnect(env, dbc);
     return 0;
 }
 
@@ -139,17 +151,24 @@ int ShowMainMenu() {
 
 void ShowProductsMenu() {
     int nChoice = 0;
+    int productnumber;
+    char *productname;
+
     do {
         nChoice = ShowProductsSubMenu();
         switch (nChoice) {
 
             case 1: {
-                PrintStock();
+                fprintf(stdin, "Enter the product number to check stock > ");
+                fscanf(stdin, "%d", &productnumber);
+                StockProducts(productnumber);
             }
                 break;
 
             case 2: {
-                PrintFind();
+                fprintf(stdin, "Enter the product name to find > ");
+                fscanf(stdin, "%s", productname);
+                FindProducts(productname);
             }
                 break;
 
@@ -210,22 +229,31 @@ void ShowProductsMenu() {
 
 void ShowOrdersMenu() {
     int nChoice = 0;
+    char *startdate;
+    char *enddate;
+    int ordernumber;
 
     do {
         nChoice = ShowOrdersSubMenu();
         switch (nChoice) {
             case 1: {
-                PrintOpen();
+                OpenOrders();
             }
                 break;
 
             case 2: {
-                PrintRange();
+                fprintf(stdin, "Enter the start date (YYYY-MM-DD) > ");
+                fscanf(stdin, "%s", startdate);
+                fprintf(stdin, "Enter the end date (YYYY-MM-DD) > ");
+                fscanf(stdin, "%s", enddate);
+                RangeOrders(startdate, enddate);
             }
                 break;
 
             case 3: {
-                PrintDetail();
+                fprintf(stdin, "Enter the order number > ");
+                fscanf(stdin, "%d", &ordernumber);
+                DetailOrders(ordernumber);
             }
                 break;
 
@@ -285,22 +313,31 @@ void ShowOrdersMenu() {
 
 void ShowCustomersMenu() {
     int nChoice = 0;
+    char *customername;
+    int customernumber;
+    
 
     do {
         nChoice = ShowCustomersSubMenu();
         switch (nChoice) {
             case 1: {
-                PrintFind();
+                fprintf(stdin, "Enter the customer name to find > ");
+                fscanf(stdin, "%s", customername);
+                FindCustomer(customername);
             }
                 break;
 
             case 2: {
-                PrintListProducts();
+                fprintf(stdin, "Enter the customer number to list products > ");
+                fscanf(stdin, "%d", &customernumber);
+                ListProducts(customernumber);
             }
                 break;
 
             case 3: {
-                PrintBalance();
+                fprintf(stdin, "Enter the customer number to get balance > ");
+                fscanf(stdin, "%d", &customernumber);
+                Balance(customernumber);
             }
                 break;
 
@@ -347,73 +384,84 @@ void ShowCustomersMenu() {
     return nSelected;
 }
 
-/**
- * @brief prints Rhyme Mary
- *
- * @return void
- * @author rmarabini
- *
- */
- void PrintMary() {
-    printf("Mary had a little lamb\n fleese white as snow\n\n\n");
-}
-
-/**
- * @brief prints Rhyme Jack
- *
- * @return void
- * @author rmarabini
- *
- */
-void PrintJack() {
-    printf("Jack and jill went up the hill to fetch water\nThen they fell down\n\n\n");
-}
-
-/**
- * @brief prints Rhyme LittleBoPee
- *
- * @return void
- * @author rmarabini
- *
- */
-void PrintLittleBoPeep() {
-    printf("Little bo peep had sheep\nthen they came home\n\n\n");
-}
-
-/**
- * @brief prints fairy tail LittleBoPee
- *
- * @return void
- * @author rmarabini
- *
- */
- void PrintZub() {
-    printf("zub zub zub zub zub zub zub zub\n\n\n");
-}
-
-/**
- * @brief prints fairy tail LittleBoPee
- *
- * @return void
- * @author rmarabini
- *
- */
-void PrintBigFatGit() {
-    printf("im big and fat and a git\n\n\n");
-}
-
-/**
- * @brief prints fairy tail LittleBoPee
- *
- * @return void
- * @author rmarabini
- *
- */
-
-void PrintAliens() {
-    printf("take us to your leader\n\n\n");
-}
-     
      
 
+int FindCustomers(char *name)
+{
+    SQLHENV env = SQL_NULL_HENV;
+    SQLHDBC dbc = SQL_NULL_HDBC;
+    SQLHSTMT stmt = NULL;
+    int ret;
+    char query[] = "SELECT customerNumber, customerName, contactFirstName, contactLastName "
+    "FROM customers "
+    "WHERE contactFirstName LIKE ? OR contactLastName LIKE ? "
+    "ORDER BY customerNumber";
 
+
+    ret = odbc_connect(env, dbc);
+    if (!SQL_SUCCEEDED(ret)) {
+        return EXIT_FAILURE;
+    }
+
+    ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("", stmt, SQL_HANDLE_ENV);
+        return ret;
+    }
+
+    ret = SQLPrepare(stmt, (SQLCHAR*) query, SQL_NTS);
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("", stmt, SQL_HANDLE_ENV);
+        return ret;
+    }
+
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &name, 0, NULL);
+                                
+        
+    ret = odbc_disconnect(env, dbc);
+    if (!SQL_SUCCEEDED(ret)) {
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+
+
+
+
+
+
+void FindProducts(SQLHDBC dbc) {
+    SQLHSTMT stmt = NULL;
+    char input[70] = "\0";
+    char pattern[75] = "\0";
+    char code[16] = "\0", name[71] = "\0";
+
+    printf("Enter product name > ");
+    (void) getchar(); /* Limpiar buffer tras enteros previos si fuera necesario */
+    if (!fgets(input, sizeof(input), stdin)) return;
+    input[strcspn(input, "\r\n")] = '\0'; /* Eliminar salto de línea */
+
+    snprintf(pattern, sizeof(pattern), "%%%s%%", input);
+
+    if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt))) return;
+
+    if (SQL_SUCCEEDED(SQLPrepare(stmt, (SQLCHAR*)
+        "SELECT productcode, productname FROM products WHERE productname ILIKE ? ORDER BY productcode", SQL_NTS))) {
+
+        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
+                                strlen(pattern), 0, pattern, 0, NULL);
+
+        if (SQL_SUCCEEDED(SQLExecute(stmt))) {
+            (void) SQLBindCol(stmt, 1, SQL_C_CHAR, code, sizeof(code), NULL);
+            (void) SQLBindCol(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
+
+            while (SQL_SUCCEEDED(SQLFetch(stmt))) {
+                printf("%s\t%s\n", code, name);
+            }
+            printf("\n");
+        }
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
