@@ -16,7 +16,7 @@ static int ShowCustomersSubMenu(void);
  * @author Alejandro Echeverria
  */
 
-void ShowCustomersMenu() {
+void ShowCustomersMenu(SQLHDBC dbc) {
     int nChoice = 0;
     char *customername;
     int customernumber;
@@ -28,21 +28,21 @@ void ShowCustomersMenu() {
             case 1: {
                 fprintf(stdin, "Enter the customer name to find > ");
                 fscanf(stdin, "%s", customername);
-                FindCustomer(customername);
+                FindCustomer(dbc, customername);
             }
                 break;
 
             case 2: {
                 fprintf(stdin, "Enter the customer number to list products > ");
                 fscanf(stdin, "%d", &customernumber);
-                ListProducts(customernumber);
+                ListProducts(dbc, customernumber);
             }
                 break;
 
             case 3: {
                 fprintf(stdin, "Enter the customer number to get balance > ");
                 fscanf(stdin, "%d", &customernumber);
-                Balance(customernumber);
+                Balance(dbc, customernumber);
             }
                 break;
 
