@@ -386,45 +386,106 @@ void ShowCustomersMenu() {
 
      
 
-int FindCustomers(char *name)
-{
-    SQLHENV env = SQL_NULL_HENV;
-    SQLHDBC dbc = SQL_NULL_HDBC;
+int FindCustomers(char *name) {
+
+    SQLHENV env = NULL;
+    SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
+
     int ret;
-    char query[] = "SELECT customerNumber, customerName, contactFirstName, contactLastName "
-    "FROM customers "
-    "WHERE contactFirstName LIKE ? OR contactLastName LIKE ? "
-    "ORDER BY customerNumber";
+    SQLRETURN ret2;
 
+    #define BufferLength 512
 
-    ret = odbc_connect(env, dbc);
+    char x[BufferLength] = "\0";
+    char y[BufferLength] = "\0";
+    char z[BufferLength] = "\0";
+    char w[BufferLength] = "\0";
+
+    SQLINTEGER n;
+    int i = 0;
+
+    /* Add % before and after the name */
+    x[0] = '%';
+
+    while (name[i] != '\0' && i < BufferLength - 3) {
+        x[i + 1] = name[i];
+        i++;
+    }
+
+    x[i + 1] = '%';
+    x[i + 2] = '\0';
+
+    /* CONNECT */
+    ret = odbc_connect(&env, &dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
     }
 
+    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_ENV);
-        return ret;
+        odbc_extract_error("", dbc, SQL_HANDLE_DBC);
+        odbc_disconnect(env, dbc);
+        return EXIT_FAILURE;
     }
 
-    ret = SQLPrepare(stmt, (SQLCHAR*) query, SQL_NTS);
+    ret = SQLPrepare(stmt, (SQLCHAR *)
+        "SELECT customerNumber, customerName, contactFirstName, contactLastName "
+        "FROM customers "
+        "WHERE contactFirstName LIKE ? OR contactLastName LIKE ? "
+        "ORDER BY customerNumber", SQL_NTS);
+
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_ENV);
-        return ret;
+        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        odbc_disconnect(env, dbc);
+        return EXIT_FAILURE;
     }
 
-    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, strlen(name), 0, &name, 0, NULL);
-    SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,  SQL_C_CHAR, SQL_VARCHAR, strlen(name), 0, name, 0, NULL);
+    /* Bind parameters */
+    (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
 
-    SQLExecute(stmt);
+    (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
 
-    SQLBindCol(stmt, 1, SQL_C_CHAR,(SQLCHAR *) , , NULL);
+    /* Execute query */
+    ret = SQLExecute(stmt);
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        odbc_disconnect(env, dbc);
+        return EXIT_FAILURE;
+    }
 
-    ret = SQLFetch(stmt);
-                                
-        
+    /* Bind columns */
+    (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &n, 0, NULL);
+    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, y, BufferLength, NULL);
+    (void) SQLBindCol(stmt, 3, SQL_C_CHAR, z, BufferLength, NULL);
+    (void) SQLBindCol(stmt, 4, SQL_C_CHAR, w, BufferLength, NULL);
+
+    /* Loop through the rows in the result-set */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        printf("%d | %s | %s | %s\n", n, y, z, w);
+    }
+
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        odbc_disconnect(env, dbc);
+        return EXIT_FAILURE;
+    }
+
+    (void) SQLCloseCursor(stmt);
+
+    /* Free up statement handle */
+    ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    if (!SQL_SUCCEEDED(ret2)) {
+        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_disconnect(env, dbc);
+        return EXIT_FAILURE;
+    }
+
+    /* DISCONNECT */
     ret = odbc_disconnect(env, dbc);
     if (!SQL_SUCCEEDED(ret)) {
         return EXIT_FAILURE;
