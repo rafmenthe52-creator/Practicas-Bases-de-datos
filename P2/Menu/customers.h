@@ -17,7 +17,7 @@ void ShowCustomersMenu(SQLHDBC dbc);
  * @author Alejandro Echeverria
  * @return EXIT_SUCCESS o EXIT_FAILURE.
  */
-int FindCustomer(SQLHDBC dbc);
+int FindCustomer(SQLHDBC dbc, char *name);
 
 /**
  * @brief Solicita el ID de un cliente y lista los productos comprados y unidades totales.
@@ -25,7 +25,7 @@ int FindCustomer(SQLHDBC dbc);
  * @author Alejandro Echeverria
  * @return EXIT_SUCCESS o EXIT_FAILURE.
  */
-int ListProducts(SQLHDBC dbc);
+int ListProducts(SQLHDBC dbc, int customerNumber);
 
 /**
  * @brief Solicita el ID de un cliente y calcula su saldo (pagos - compras).
@@ -33,6 +33,6 @@ int ListProducts(SQLHDBC dbc);
  * @author Alejandro Echeverria
  * @return EXIT_SUCCESS o EXIT_FAILURE.
  */
-int Balance(SQLHDBC dbc);
+int Balance(SQLHDBC dbc, int customerNumber);
 
 #endif
