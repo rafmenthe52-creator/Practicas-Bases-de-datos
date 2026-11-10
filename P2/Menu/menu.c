@@ -3,6 +3,7 @@
 #include <odbc.h>
 #include <sql.h>
 #include <sqlext.h>
+#include "customers.h"
 
 /* #include "menu_template.h" */
 /* #ifndef A2BIS_MENU_TEMPLATE_H */
@@ -26,8 +27,6 @@ static void ShowProductsMenu();
 static int ShowProductsSubMenu();
 static void ShowOrdersMenu();
 static int ShowOrdersSubMenu();
-static void ShowCustomersMenu();
-static int ShowCustomersSubMenu();
 
 
 /* #endif //A2BIS_MENU_TEMPLATE_H */
@@ -72,17 +71,17 @@ int main(void) {
         nChoice = ShowMainMenu();
         switch (nChoice) {
             case 1: {
-                ShowProductsMenu();
+                ShowProductsMenu(dbc);
             }
                 break;
 
             case 2: {
-                ShowOrdersMenu();
+                ShowOrdersMenu(dbc);
             }
                 break;
             
             case 3: {
-                ShowCustomersMenu();
+                ShowCustomersMenu(dbc);
             }
                 break;
 
@@ -115,15 +114,13 @@ int ShowMainMenu() {
                      as 'qwerty' */
 
     do {
-        printf("This is a nursery rhyme and fairy stories program\n");
-        printf("You can choose to display a number of different nursery rhymes and fairy stories\n\n");
-
         printf(" (1) Products\n"
                " (2) Orders\n"
                " (3) Customers\n"
                " (4) Exit\n\n"
                "Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, 16, stdin))
+
+        if (!fgets(buf, (int) sizeof(buf), stdin))
             /* reading input failed, give up: */
             nSelected =0;
         else
@@ -298,238 +295,4 @@ void ShowOrdersMenu() {
     } while ((nSelected < 1) || (nSelected > 4));
 
     return nSelected;
-}
-
-/**
- * @brief Shows and processes the fairy menu.
- *
- * This function implements a loop that prints the fairy
- * menu, analyze the user selection and prints
- * the selected fairy tail
- *
- * @return selected option
- * @author rmarabini
- */
-
-void ShowCustomersMenu() {
-    int nChoice = 0;
-    char *customername;
-    int customernumber;
-    
-
-    do {
-        nChoice = ShowCustomersSubMenu();
-        switch (nChoice) {
-            case 1: {
-                fprintf(stdin, "Enter the customer name to find > ");
-                fscanf(stdin, "%s", customername);
-                FindCustomer(customername);
-            }
-                break;
-
-            case 2: {
-                fprintf(stdin, "Enter the customer number to list products > ");
-                fscanf(stdin, "%d", &customernumber);
-                ListProducts(customernumber);
-            }
-                break;
-
-            case 3: {
-                fprintf(stdin, "Enter the customer number to get balance > ");
-                fscanf(stdin, "%d", &customernumber);
-                Balance(customernumber);
-            }
-                break;
-
-            case 4: {
-                printf("Bye Bye\n\n");
-            }
-                break;
-        }
-    } while (nChoice != 4);
-
-}
-
-/**
- * @brief prints the fairy menu and allows to select an option.
- *
- * @return selected option
- * @author rmarabini
- */
- int ShowCustomersSubMenu() {
-    int nSelected = 0;
-    char buf[16];
-
-    do {
-
-        printf(" (1) Find\n"
-               " (2) List Products\n"
-               " (3) Balance\n"
-               " (4) Back\n\n");
-
-        printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, 16, stdin))
-            /* reading input failed, give up: */
-            nSelected =0;
-        else
-            /* have some input, convert it to integer: */
-            nSelected = atoi(buf);
-        printf("\n");
-
-        if ((nSelected < 1) || (nSelected > 4)) {
-            printf("You have entered an invalid choice. Please try again\n\n\n");
-        }
-    } while ((nSelected < 1) || (nSelected > 4));
-
-    return nSelected;
-}
-
-     
-
-int FindCustomers(char *name) {
-
-    SQLHENV env = NULL;
-    SQLHDBC dbc = NULL;
-    SQLHSTMT stmt = NULL;
-
-    int ret;
-    SQLRETURN ret2;
-
-    #define BufferLength 512
-
-    char x[BufferLength] = "\0";
-    char y[BufferLength] = "\0";
-    char z[BufferLength] = "\0";
-    char w[BufferLength] = "\0";
-
-    SQLINTEGER n;
-    int i = 0;
-
-    /* Add % before and after the name */
-    x[0] = '%';
-
-    while (name[i] != '\0' && i < BufferLength - 3) {
-        x[i + 1] = name[i];
-        i++;
-    }
-
-    x[i + 1] = '%';
-    x[i + 2] = '\0';
-
-    /* CONNECT */
-    ret = odbc_connect(&env, &dbc);
-    if (!SQL_SUCCEEDED(ret)) {
-        return EXIT_FAILURE;
-    }
-
-    /* Allocate a statement handle */
-    ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", dbc, SQL_HANDLE_DBC);
-        odbc_disconnect(env, dbc);
-        return EXIT_FAILURE;
-    }
-
-    ret = SQLPrepare(stmt, (SQLCHAR *)
-        "SELECT customerNumber, customerName, contactFirstName, contactLastName "
-        "FROM customers "
-        "WHERE contactFirstName LIKE ? OR contactLastName LIKE ? "
-        "ORDER BY customerNumber", SQL_NTS);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return EXIT_FAILURE;
-    }
-
-    /* Bind parameters */
-    (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
-
-    (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
-
-    /* Execute query */
-    ret = SQLExecute(stmt);
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return EXIT_FAILURE;
-    }
-
-    /* Bind columns */
-    (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &n, 0, NULL);
-    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, y, BufferLength, NULL);
-    (void) SQLBindCol(stmt, 3, SQL_C_CHAR, z, BufferLength, NULL);
-    (void) SQLBindCol(stmt, 4, SQL_C_CHAR, w, BufferLength, NULL);
-
-    /* Loop through the rows in the result-set */
-    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%d | %s | %s | %s\n", n, y, z, w);
-    }
-
-    if (ret != SQL_NO_DATA) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return EXIT_FAILURE;
-    }
-
-    (void) SQLCloseCursor(stmt);
-
-    /* Free up statement handle */
-    ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    if (!SQL_SUCCEEDED(ret2)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        odbc_disconnect(env, dbc);
-        return EXIT_FAILURE;
-    }
-
-    /* DISCONNECT */
-    ret = odbc_disconnect(env, dbc);
-    if (!SQL_SUCCEEDED(ret)) {
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
-}
-
-
-
-
-
-
-
-void FindProducts(SQLHDBC dbc) {
-    SQLHSTMT stmt = NULL;
-    char input[70] = "\0";
-    char pattern[75] = "\0";
-    char code[16] = "\0", name[71] = "\0";
-
-    printf("Enter product name > ");
-    (void) getchar(); /* Limpiar buffer tras enteros previos si fuera necesario */
-    if (!fgets(input, sizeof(input), stdin)) return;
-    input[strcspn(input, "\r\n")] = '\0'; /* Eliminar salto de línea */
-
-    snprintf(pattern, sizeof(pattern), "%%%s%%", input);
-
-    if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt))) return;
-
-    if (SQL_SUCCEEDED(SQLPrepare(stmt, (SQLCHAR*)
-        "SELECT productcode, productname FROM products WHERE productname ILIKE ? ORDER BY productcode", SQL_NTS))) {
-
-        (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
-                                strlen(pattern), 0, pattern, 0, NULL);
-
-        if (SQL_SUCCEEDED(SQLExecute(stmt))) {
-            (void) SQLBindCol(stmt, 1, SQL_C_CHAR, code, sizeof(code), NULL);
-            (void) SQLBindCol(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
-
-            while (SQL_SUCCEEDED(SQLFetch(stmt))) {
-                printf("%s\t%s\n", code, name);
-            }
-            printf("\n");
-        }
-    }
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
