@@ -20,7 +20,7 @@ static int ShowCustomersSubMenu(void);
 
 void ShowCustomersMenu(SQLHDBC dbc) {
     int nChoice = 0;
-    char *customername;
+    char customername[BufferLength];
     int customernumber;
     
 
@@ -28,21 +28,24 @@ void ShowCustomersMenu(SQLHDBC dbc) {
         nChoice = ShowCustomersSubMenu();
         switch (nChoice) {
             case 1: {
-                fprintf(stdin, "Enter the customer name to find > ");
-                fscanf(stdin, "%s", customername);
-                FindCustomer(dbc, customername);
+                fprintf(stdout, "Enter the customer name to find > ");
+                if (fgets(customername, (int) sizeof(customername), stdin)) {
+                    /* Eliminamos el salto de línea al final */
+                    customername[strcspn(customername, "\r\n")] = '\0';
+                    (void) FindCustomer(dbc, customername);
+                }
             }
                 break;
 
             case 2: {
-                fprintf(stdin, "Enter the customer number to list products > ");
+                fprintf(stdout, "Enter the customer number to list products > ");
                 fscanf(stdin, "%d", &customernumber);
                 ListProducts(dbc, customernumber);
             }
                 break;
 
             case 3: {
-                fprintf(stdin, "Enter the customer number to get balance > ");
+                fprintf(stdout, "Enter the customer number to get balance > ");
                 fscanf(stdin, "%d", &customernumber);
                 Balance(dbc, customernumber);
             }
@@ -75,7 +78,7 @@ int ShowCustomersSubMenu() {
                " (4) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, 16, stdin))
+        if (!fgets(buf, (int) sizeof(buf), stdin))
             /* reading input failed, give up: */
             nSelected = 0;
         else
