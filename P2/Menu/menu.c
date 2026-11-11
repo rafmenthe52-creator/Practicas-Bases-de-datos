@@ -4,6 +4,8 @@
 #include <sql.h>
 #include <sqlext.h>
 #include "customers.h"
+#include "orders.h"
+#include "products.h"
 
 /* #include "menu_template.h" */
 /* #ifndef A2BIS_MENU_TEMPLATE_H */
@@ -23,11 +25,6 @@
  * */
 
 static int ShowMainMenu();
-static void ShowProductsMenu();
-static int ShowProductsSubMenu();
-static void ShowOrdersMenu();
-static int ShowOrdersSubMenu();
-
 
 /* #endif //A2BIS_MENU_TEMPLATE_H */
 
@@ -136,79 +133,4 @@ int ShowMainMenu() {
     return nSelected;
 }
 
-/**
- * @brief Shows and processes the rhyme menu.
- *
- * This function implements a loop that prints the rhyme
- * menu, analyze the user selection and prints
- * the selected rhyme
- * @return void
- * @author rmarabini
- */
 
-void ShowProductsMenu() {
-    int nChoice = 0;
-    int productnumber;
-    char *productname;
-
-    do {
-        nChoice = ShowProductsSubMenu();
-        switch (nChoice) {
-
-            case 1: {
-                fprintf(stdin, "Enter the product number to check stock > ");
-                fscanf(stdin, "%d", &productnumber);
-                StockProducts(productnumber);
-            }
-                break;
-
-            case 2: {
-                fprintf(stdin, "Enter the product name to find > ");
-                fscanf(stdin, "%s", productname);
-                FindProducts(productname);
-            }
-                break;
-
-            case 3: {
-                printf("Bye Bye\n\n");
-            }
-                break;
-        }
-    } while (nChoice != 3);
-
-}
-
-/**
- * @brief prints rhyme menu and allows to select an option.
- *
- * @return selected option
- * @author rmarabini
- */
-
- int ShowProductsSubMenu() {
-    int nSelected = 0;
-    char buf[16];
-
-    do {
-
-        printf(" (1) Stock\n"
-               " (2) Find\n"
-               " (3) Back\n\n");
-
-        printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, 16, stdin))
-            /* reading input failed, give up: */
-            nSelected =0;
-        else
-            /* have some input, convert it to integer: */
-            nSelected = atoi(buf);
-        printf("\n");
-
-
-        if ((nSelected < 1) || (nSelected > 3)) {
-            printf("You have entered an invalid choice. Please try again\n\n\n");
-        }
-    } while ((nSelected < 1) || (nSelected > 3));
-
-    return nSelected;
-}

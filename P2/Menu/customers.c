@@ -8,6 +8,7 @@
 
 #define BufferLength 512
 
+static int ShowCustomersSubMenu(void);
 
 /**
  * @brief Shows the Customers submenu and processes user selection.
@@ -183,10 +184,9 @@ int FindCustomer(SQLHDBC dbc, char *name) {
 /**
  * @brief Opción 2: List Products comprados por un cliente específico.
  */
-void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
+void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber)
 {
     SQLHENV env = NULL;
-    SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
 
     SQLRETURN ret;
@@ -231,7 +231,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -243,7 +242,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -255,7 +253,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -266,7 +263,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -276,7 +272,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -286,7 +281,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
         SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
         return;
     }
 
@@ -390,7 +384,6 @@ void ListProducts(SQLHDBC dbc,SQLINTEGER customernumber)
 
     /* Free resources */
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    odbc_disconnect(env, dbc);
 }
 
 /**
