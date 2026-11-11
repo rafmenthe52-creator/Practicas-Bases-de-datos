@@ -63,7 +63,7 @@ int ShowOrdersSubMenu() {
 
     do {
 
-        printf(" (1) Find\n"
+        printf(" (1) List open orders\n"
                " (2) List Orders in range\n"
                " (3) Show order details\n"
                " (4) Back\n\n");
