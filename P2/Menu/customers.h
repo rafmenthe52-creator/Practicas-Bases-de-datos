@@ -25,7 +25,7 @@ int FindCustomer(SQLHDBC dbc, char *name);
  * @author Alejandro Echeverria
  * @return EXIT_SUCCESS o EXIT_FAILURE.
  */
-int ListProducts(SQLHDBC dbc, int customerNumber);
+int ListProducts(SQLHDBC dbc, SQLINTEGER customerNumber);
 
 /**
  * @brief Solicita el ID de un cliente y calcula su saldo (pagos - compras).
