@@ -64,8 +64,8 @@ int ShowOrdersSubMenu() {
     do {
 
         printf(" (1) Find\n"
-               " (2) List Products\n"
-               " (3) Balance\n"
+               " (2) List Orders in range\n"
+               " (3) Show order details\n"
                " (4) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
