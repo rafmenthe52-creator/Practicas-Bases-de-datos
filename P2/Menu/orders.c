@@ -11,8 +11,28 @@
 static int ShowOrdersSubMenu(void);
 
 /**
+ * @brief Lista los pedidos abiertos (sin fecha de envío) ordenados por orderNumber.
+ * @param dbc Manejador de la conexión activa a la base de datos.
+ */
+static void ListOpenOrders(SQLHDBC dbc);
+
+/**
+ * @brief Lista los pedidos realizados entre dos fechas dadas.
+ * @param dbc Manejador de la conexión activa a la base de datos.
+ * @param start_date Fecha inicial en formato YYYY-MM-DD.
+ * @param end_date Fecha final en formato YYYY-MM-DD.
+ */
+static void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date);
+
+/**
+ * @brief Muestra la fecha, estado, coste total y líneas de producto de un pedido.
+ * @param dbc Manejador de la conexión activa a la base de datos.
+ * @param ordernumber Identificador del pedido.
+ */
+static void ShowOrderDetails(SQLHDBC dbc, SQLINTEGER ordernumber);
+
+/**
  * @brief Shows the Orders submenu and processes user selection.
- *
  *
  * @return selected option
  * @author Rafael Velasco Wagner
@@ -134,7 +154,7 @@ void ListOpenOrders(SQLHDBC dbc)
 
     if (ret != SQL_NO_DATA) {
         odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-    } else if (!found) {
+    } else if (found == 0) {
         printf("There are no open orders.\n");
     }
 
@@ -211,8 +231,8 @@ void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date)
 
     /* Bind result columns */
     (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
-    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, orderdate, sizeof(orderdate), NULL);
-    (void) SQLBindCol(stmt, 3, SQL_C_CHAR, shippeddate, sizeof(shippeddate), &indShipped);
+    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, orderdate, (SQLLEN) sizeof(orderdate), NULL);
+    (void) SQLBindCol(stmt, 3, SQL_C_CHAR, shippeddate, (SQLLEN) sizeof(shippeddate), &indShipped);
 
     /* Loop through the rows in the result-set */
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
@@ -226,7 +246,7 @@ void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date)
 
     if (ret != SQL_NO_DATA) {
         odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-    } else if (!found) {
+    } else if (found == 0) {
         printf("No orders found in this date range.\n");
     }
 
@@ -295,10 +315,10 @@ void ShowOrderDetails(SQLHDBC dbc, SQLINTEGER ordernumber)
     }
 
     /* Bind result columns */
-    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, orderdate, sizeof(orderdate), NULL);
-    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, status, sizeof(status), NULL);
+    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, orderdate, (SQLLEN) sizeof(orderdate), NULL);
+    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, status, (SQLLEN) sizeof(status), NULL);
     (void) SQLBindCol(stmt, 3, SQL_C_DOUBLE, &total, 0, NULL);
-    (void) SQLBindCol(stmt, 4, SQL_C_CHAR, productcode, sizeof(productcode), NULL);
+    (void) SQLBindCol(stmt, 4, SQL_C_CHAR, productcode, (SQLLEN) sizeof(productcode), NULL);
     (void) SQLBindCol(stmt, 5, SQL_C_SLONG, &quantity, 0, NULL);
     (void) SQLBindCol(stmt, 6, SQL_C_DOUBLE, &price, 0, NULL);
 

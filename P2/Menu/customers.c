@@ -23,6 +23,30 @@ typedef struct {
 static int ShowCustomersSubMenu(void);
 
 /**
+ * @brief Solicita un nombre/apellido de contacto y lista los clientes coincidentes.
+ * @param dbc Manejador de la conexión activa.
+ * @author Alejandro Echeverria
+ * @return EXIT_SUCCESS o EXIT_FAILURE.
+ */
+static int FindCustomer(SQLHDBC dbc, char *name);
+
+/**
+ * @brief Solicita el ID de un cliente y lista los productos comprados y unidades totales.
+ * @param dbc Manejador de la conexión activa.
+ * @author Alejandro Echeverria
+ * @return EXIT_SUCCESS o EXIT_FAILURE.
+ */
+static int ListProducts(SQLHDBC dbc, SQLINTEGER customerNumber);
+
+/**
+ * @brief Solicita el ID de un cliente y calcula su saldo (pagos - compras).
+ * @param dbc Manejador de la conexión activa.
+ * @author Alejandro Echeverria
+ * @return EXIT_SUCCESS o EXIT_FAILURE.
+ */
+static int Balance(SQLHDBC dbc, int customerNumber);
+
+/**
  * @brief Shows the Customers submenu and processes user selection.
  * @param dbc Active database connection handle.
  * @author Alejandro Echeverria
@@ -48,7 +72,7 @@ void ShowCustomersMenu(SQLHDBC dbc) {
                 printf("Enter customer number > ");
                 if (fgets(input, (int) sizeof(input), stdin) != NULL) {
                     customernumber = atoi(input);
-                    ListProducts(dbc, (SQLINTEGER) customernumber);
+                    (void) ListProducts(dbc, (SQLINTEGER) customernumber);
                 }
             }
                 break;
@@ -166,8 +190,8 @@ int FindCustomer(SQLHDBC dbc, char *name) {
     (void) SQLBindCol(stmt, 3, SQL_C_CHAR, z, BufferLength, NULL);
     (void) SQLBindCol(stmt, 4, SQL_C_CHAR, w, BufferLength, NULL);
 
-    rows = (CustomerRow *) malloc((size_t) capacity * sizeof(CustomerRow));
-    if (!rows) {
+    rows = (CustomerRow *) calloc((size_t) capacity, sizeof(CustomerRow));
+    if (rows == NULL) {
         (void) SQLCloseCursor(stmt);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
@@ -176,14 +200,19 @@ int FindCustomer(SQLHDBC dbc, char *name) {
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
         if (count >= capacity) {
             capacity *= 2;
-            tmp = (CustomerRow *) realloc(rows, (size_t) capacity * sizeof(CustomerRow));
-            if (!tmp) {
+            tmp = (CustomerRow *) calloc((size_t) (capacity * 2), sizeof(CustomerRow));
+            if (tmp == NULL) {
                 free(rows);
                 (void) SQLCloseCursor(stmt);
                 (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
                 return EXIT_FAILURE;
             }
+           for (i = 0; i < count; i++) {
+                tmp[i] = rows[i];
+            }
+            free(rows);
             rows = tmp;
+            capacity *= 2;
         }
         rows[count].customerNumber = (int) n;
         (void) strncpy(rows[count].customerName, y, BufferLength - 1);
@@ -228,17 +257,21 @@ int FindCustomer(SQLHDBC dbc, char *name) {
 /**
  * @brief Opción 2: List Products comprados por un cliente específico (con paginación).
  */
-int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
+static int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     SQLHSTMT stmt = NULL;
     SQLRETURN ret;
 
     char y[BufferLength] = "\0";
+    char nav[16] = "\0";
     SQLINTEGER z = 0;
 
     CustomerProductRow *rows = NULL;
     CustomerProductRow *tmp = NULL;
     int capacity = 16;
     int count = 0;
+    int page = 0;
+    int start = 0;
+    int end = 0;
     int i = 0;
 
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
@@ -247,7 +280,6 @@ int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
         return EXIT_FAILURE;
     }
 
-    /* Solo seleccionamos productName y SUM(quantityOrdered), ordenando por productCode */
     ret = SQLPrepare(stmt,
         (SQLCHAR *)
         "SELECT p.productName, SUM(od.quantityOrdered) "
@@ -282,11 +314,11 @@ int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
         return EXIT_FAILURE;
     }
 
-    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, y, sizeof(y), NULL);
+    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, y, (SQLLEN) sizeof(y), NULL);
     (void) SQLBindCol(stmt, 2, SQL_C_SLONG, &z, 0, NULL);
 
-    rows = (CustomerProductRow *) malloc((size_t) capacity * sizeof(CustomerProductRow));
-    if (!rows) {
+    rows = (CustomerProductRow *) calloc((size_t) capacity, sizeof(CustomerProductRow));
+    if (rows == NULL) {
         (void) SQLCloseCursor(stmt);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
@@ -294,15 +326,19 @@ int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
 
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
         if (count >= capacity) {
-            capacity *= 2;
-            tmp = (CustomerProductRow *) realloc(rows, (size_t) capacity * sizeof(CustomerProductRow));
-            if (!tmp) {
+            tmp = (CustomerProductRow *) calloc((size_t) (capacity * 2), sizeof(CustomerProductRow));
+            if (tmp == NULL) {
                 free(rows);
                 (void) SQLCloseCursor(stmt);
                 (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
                 return EXIT_FAILURE;
             }
+            for (i = 0; i < count; i++) {
+                tmp[i] = rows[i];
+            }
+            free(rows);
             rows = tmp;
+            capacity *= 2;
         }
         (void) strncpy(rows[count].productName, y, BufferLength - 1);
         rows[count].productName[BufferLength - 1] = '\0';
@@ -327,9 +363,49 @@ int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
         return EXIT_SUCCESS;
     }
 
-    for (i = 0; i < count; i++) {
-        printf("%s %d\n", rows[i].productName, rows[i].totalUnits);
+    if (count <= 10) {
+        for (i = 0; i < count; i++) {
+            printf("%s\t%d\n", rows[i].productName, rows[i].totalUnits);
+        }
+        printf("\n");
+        free(rows);
+        return EXIT_SUCCESS;
     }
+
+    for (;;) {
+        start = page * 10;
+        end = start + 10;
+        if (end > count) {
+            end = count;
+        }
+
+        for (i = start; i < end; i++) {
+            printf("%s\t%d\n", rows[i].productName, rows[i].totalUnits);
+        }
+
+        printf("\nPage %d/%d ", page + 1, (count + 9) / 10);
+        if (page > 0) {
+            printf("[< Previous] ");
+        }
+        if (end < count) {
+            printf("[> Next] ");
+        }
+        printf("[q Exit] > ");
+
+        if (fgets(nav, (int) sizeof(nav), stdin) == NULL) {
+            break;
+        }
+
+        if (nav[0] == '>' && end < count) {
+            page++;
+        } else if (nav[0] == '<' && page > 0) {
+            page--;
+        } else {
+            break;
+        }
+        printf("\n");
+    }
+
     printf("\n");
     free(rows);
     return EXIT_SUCCESS;
