@@ -8,58 +8,57 @@
 
 #define BufferLength 512
 
-static int ShowCustomersSubMenu(void);
-
 typedef struct {
     int customerNumber;
-    char customerName[BUFFER_LEN];
-    char contactFirstName[BUFFER_LEN];
-    char contactLastName[BUFFER_LEN];
+    char customerName[BufferLength];
+    char contactFirstName[BufferLength];
+    char contactLastName[BufferLength];
 } CustomerRow;
 
 typedef struct {
-    char productName[BUFFER_LEN];
+    char productName[BufferLength];
     int totalUnits;
 } CustomerProductRow;
 
+static int ShowCustomersSubMenu(void);
+
 /**
  * @brief Shows the Customers submenu and processes user selection.
- *
- *
- * @return selected option
+ * @param dbc Active database connection handle.
  * @author Alejandro Echeverria
  */
-
 void ShowCustomersMenu(SQLHDBC dbc) {
     int nChoice = 0;
-    char customername[BufferLength];
-    int customernumber;
-    
+    char input[BufferLength] = "\0";
+    int customernumber = 0;
 
     do {
         nChoice = ShowCustomersSubMenu();
         switch (nChoice) {
             case 1: {
-                fprintf(stdout, "Enter the customer name to find > ");
-                if (fgets(customername, (int) sizeof(customername), stdin)) {
-                    /* Eliminamos el salto de línea al final */
-                    customername[strcspn(customername, "\r\n")] = '\0';
-                    (void) FindCustomer(dbc, customername);
+                printf("Enter the customer name to find > ");
+                if (fgets(input, (int) sizeof(input), stdin) != NULL) {
+                    input[strcspn(input, "\r\n")] = '\0';
+                    (void) FindCustomer(dbc, input);
                 }
             }
                 break;
 
             case 2: {
-                fprintf(stdout, "Enter the customer number to list products > ");
-                fscanf(stdin, "%d", &customernumber);
-                ListProducts(dbc, customernumber);
+                printf("Enter the customer number to list products > ");
+                if (fgets(input, (int) sizeof(input), stdin) != NULL) {
+                    customernumber = atoi(input);
+                    ListProducts(dbc, (SQLINTEGER) customernumber);
+                }
             }
                 break;
 
             case 3: {
-                fprintf(stdout, "Enter the customer number to get balance > ");
-                fscanf(stdin, "%d", &customernumber);
-                Balance(dbc, customernumber);
+                printf("Enter the customer number to get balance > ");
+                if (fgets(input, (int) sizeof(input), stdin) != NULL) {
+                    customernumber = atoi(input);
+                    (void) Balance(dbc, customernumber);
+                }
             }
                 break;
 
@@ -67,35 +66,34 @@ void ShowCustomersMenu(SQLHDBC dbc) {
                 printf("Bye Bye\n\n");
             }
                 break;
+
+            default:
+                break;
         }
     } while (nChoice != 4);
-
 }
 
 /**
- * @brief prints the Customers submenu and allows to select an option.
- *
- * @return selected option
+ * @brief Prints the Customers submenu and allows to select an option.
+ * @return Selected option.
  * @author Alejandro Echeverria
  */
-int ShowCustomersSubMenu() {
+static int ShowCustomersSubMenu(void) {
     int nSelected = 0;
-    char buf[16];
+    char buf[16] = "\0";
 
     do {
-
         printf(" (1) Find\n"
                " (2) List Products\n"
                " (3) Balance\n"
                " (4) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, (int) sizeof(buf), stdin))
-            /* reading input failed, give up: */
+        if (!fgets(buf, (int) sizeof(buf), stdin)) {
             nSelected = 0;
-        else
-            /* have some input, convert it to integer: */
+        } else {
             nSelected = atoi(buf);
+        }
         printf("\n");
 
         if ((nSelected < 1) || (nSelected > 4)) {
@@ -105,323 +103,346 @@ int ShowCustomersSubMenu() {
 
     return nSelected;
 }
+
 /**
- * @brief Opción 1: Find Customers por nombre o apellido de contacto.
+ * @brief Opción 1: Find Customers por nombre o apellido de contacto (con paginación).
  */
 int FindCustomer(SQLHDBC dbc, char *name) {
-
     SQLHSTMT stmt = NULL;
-
-    int ret;
-    SQLRETURN ret2;
+    SQLRETURN ret;
 
     char x[BufferLength] = "\0";
     char y[BufferLength] = "\0";
     char z[BufferLength] = "\0";
     char w[BufferLength] = "\0";
+    char nav[16] = "\0";
 
-    SQLINTEGER n;
+    SQLINTEGER n = 0;
     int i = 0;
+
+    CustomerRow *rows = NULL;
+    CustomerRow *tmp = NULL;
+    int capacity = 16;
+    int count = 0;
+    int page = 0;
+    int start = 0;
+    int end = 0;
 
     /* Add % before and after the name */
     x[0] = '%';
-
     while (name[i] != '\0' && i < BufferLength - 3) {
         x[i + 1] = name[i];
         i++;
     }
-
     x[i + 1] = '%';
     x[i + 2] = '\0';
 
-    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", dbc, SQL_HANDLE_DBC);
+        odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
         return EXIT_FAILURE;
     }
 
     ret = SQLPrepare(stmt, (SQLCHAR *)
         "SELECT customerNumber, customerName, contactFirstName, contactLastName "
         "FROM customers "
-        "WHERE contactFirstName LIKE ? OR contactLastName LIKE ? "
+        "WHERE contactFirstName ILIKE ? OR contactLastName ILIKE ? "
         "ORDER BY customerNumber", SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
-    /* Bind parameters */
     (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
-
     (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, BufferLength, 0, x, BufferLength, NULL);
 
-    /* Execute query */
     ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
-    /* Bind columns */
     (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &n, 0, NULL);
     (void) SQLBindCol(stmt, 2, SQL_C_CHAR, y, BufferLength, NULL);
     (void) SQLBindCol(stmt, 3, SQL_C_CHAR, z, BufferLength, NULL);
     (void) SQLBindCol(stmt, 4, SQL_C_CHAR, w, BufferLength, NULL);
 
-    /* Loop through the rows in the result-set */
+    rows = (CustomerRow *) malloc((size_t) capacity * sizeof(CustomerRow));
+    if (!rows) {
+        (void) SQLCloseCursor(stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%d | %s | %s | %s\n", n, y, z, w);
+        if (count >= capacity) {
+            capacity *= 2;
+            tmp = (CustomerRow *) realloc(rows, (size_t) capacity * sizeof(CustomerRow));
+            if (!tmp) {
+                free(rows);
+                (void) SQLCloseCursor(stmt);
+                (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+                return EXIT_FAILURE;
+            }
+            rows = tmp;
+        }
+        rows[count].customerNumber = (int) n;
+        (void) strncpy(rows[count].customerName, y, BufferLength - 1);
+        rows[count].customerName[BufferLength - 1] = '\0';
+        (void) strncpy(rows[count].contactFirstName, z, BufferLength - 1);
+        rows[count].contactFirstName[BufferLength - 1] = '\0';
+        (void) strncpy(rows[count].contactLastName, w, BufferLength - 1);
+        rows[count].contactLastName[BufferLength - 1] = '\0';
+        count++;
     }
 
     if (ret != SQL_NO_DATA) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+        free(rows);
+        (void) SQLCloseCursor(stmt);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
     (void) SQLCloseCursor(stmt);
+    (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 
-    /* Free up statement handle */
-    ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    if (!SQL_SUCCEEDED(ret2)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        return EXIT_FAILURE;
+    if (count == 0) {
+        printf("No customers found.\n\n");
+        free(rows);
+        return EXIT_SUCCESS;
     }
 
+    /* Si hay <= 10 resultados, se muestran directamente sin paginar */
+    if (count <= 10) {
+        for (i = 0; i < count; i++) {
+            printf("%d\t%s\t%s\t%s\n",
+                   rows[i].customerNumber,
+                   rows[i].customerName,
+                   rows[i].contactFirstName,
+                   rows[i].contactLastName);
+        }
+        printf("\n");
+        free(rows);
+        return EXIT_SUCCESS;
+    }
+
+    /* Paginación para más de 10 resultados */
+    while (1) {
+        start = page * 10;
+        end = start + 10;
+        if (end > count) {
+            end = count;
+        }
+
+        for (i = start; i < end; i++) {
+            printf("%d\t%s\t%s\t%s\n",
+                   rows[i].customerNumber,
+                   rows[i].customerName,
+                   rows[i].contactFirstName,
+                   rows[i].contactLastName);
+        }
+
+        printf("\nPage %d/%d ", page + 1, (count + 9) / 10);
+        if (page > 0) {
+            printf("[< Previous] ");
+        }
+        if (end < count) {
+            printf("[> Next] ");
+        }
+        printf("[q Exit] > ");
+
+        if (!fgets(nav, (int) sizeof(nav), stdin)) {
+            break;
+        }
+
+        if (nav[0] == '>' && end < count) {
+            page++;
+        } else if (nav[0] == '<' && page > 0) {
+            page--;
+        } else {
+            break;
+        }
+        printf("\n");
+    }
+
+    printf("\n");
+    free(rows);
     return EXIT_SUCCESS;
 }
 
-
 /**
- * @brief Opción 2: List Products comprados por un cliente específico.
+ * @brief Opción 2: List Products comprados por un cliente específico (con paginación).
  */
-void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber)
-{
-    SQLHENV env = NULL;
+void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     SQLHSTMT stmt = NULL;
-
     SQLRETURN ret;
 
-    SQLINTEGER x;
-    SQLINTEGER offset;
-    SQLINTEGER z;
-
     char y[BufferLength] = "\0";
+    char nav[16] = "\0";
+    SQLINTEGER z = 0;
 
-    SQLLEN indicator1;
-    SQLLEN indicator2;
-    SQLLEN indicator3;
-
+    CustomerProductRow *rows = NULL;
+    CustomerProductRow *tmp = NULL;
+    int capacity = 16;
+    int count = 0;
     int page = 0;
-    int i;
-    int has_next;
-    char option;
+    int start = 0;
+    int end = 0;
+    int i = 0;
 
-    /* Allocate statement */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        odbc_disconnect(env, dbc);
         return;
     }
 
-    /* Prepare query */
+    /* Solo seleccionamos productName y SUM(quantityOrdered), ordenando por productCode */
     ret = SQLPrepare(stmt,
         (SQLCHAR *)
-        "SELECT p.productCode, p.productName, SUM(od.quantityOrdered) "
+        "SELECT p.productName, SUM(od.quantityOrdered) "
         "FROM products p "
         "JOIN orderdetails od ON p.productCode = od.productCode "
         "JOIN orders o ON od.orderNumber = o.orderNumber "
         "WHERE o.customerNumber = ? "
         "GROUP BY p.productCode, p.productName "
-        "ORDER BY p.productCode "
-        "LIMIT 11 OFFSET ?",
+        "ORDER BY p.productCode",
         SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    /* Bind customer number */
     ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
         SQL_C_SLONG, SQL_INTEGER, 0, 0,
         &customernumber, 0, NULL);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    /* Bind offset */
-    ret = SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
-        SQL_C_SLONG, SQL_INTEGER, 0, 0,
-        &offset, 0, NULL);
-
+    ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    /* Bind result columns */
-    ret = SQLBindCol(stmt, 1, SQL_C_SLONG,
-        &x, sizeof(x), &indicator1);
+    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, y, sizeof(y), NULL);
+    (void) SQLBindCol(stmt, 2, SQL_C_SLONG, &z, 0, NULL);
 
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    rows = (CustomerProductRow *) malloc((size_t) capacity * sizeof(CustomerProductRow));
+    if (!rows) {
+        (void) SQLCloseCursor(stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    ret = SQLBindCol(stmt, 2, SQL_C_CHAR,
-        y, sizeof(y), &indicator2);
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        if (count >= capacity) {
+            capacity *= 2;
+            tmp = (CustomerProductRow *) realloc(rows, (size_t) capacity * sizeof(CustomerProductRow));
+            if (!tmp) {
+                free(rows);
+                (void) SQLCloseCursor(stmt);
+                (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+                return;
+            }
+            rows = tmp;
+        }
+        (void) strncpy(rows[count].productName, y, BufferLength - 1);
+        rows[count].productName[BufferLength - 1] = '\0';
+        rows[count].totalUnits = (int) z;
+        count++;
+    }
 
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+        free(rows);
+        (void) SQLCloseCursor(stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    ret = SQLBindCol(stmt, 3, SQL_C_SLONG,
-        &z, sizeof(z), &indicator3);
+    (void) SQLCloseCursor(stmt);
+    (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    if (count == 0) {
+        printf("No products found for this customer.\n\n");
+        free(rows);
         return;
     }
 
-    /* Pagination */
+    if (count <= 10) {
+        for (i = 0; i < count; i++) {
+            printf("%s\t%d\n", rows[i].productName, rows[i].totalUnits);
+        }
+        printf("\n");
+        free(rows);
+        return;
+    }
+
     while (1) {
-
-        offset = page * 10;
-        i = 0;
-        has_next = 0;
-
-        ret = SQLExecute(stmt);
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-            break;
+        start = page * 10;
+        end = start + 10;
+        if (end > count) {
+            end = count;
         }
 
-        printf("\nProducts purchased by customer %d\n", customernumber);
-        printf("---------------------------------------------\n");
-        printf("%-35s %s\n", "Product name", "Units ordered");
-        printf("---------------------------------------------\n");
-
-        /* Display the first 10 products */
-        while (i < 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (ret == SQL_NO_DATA) {
-                break;
-            }
-
-            if (!SQL_SUCCEEDED(ret)) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                break;
-            }
-
-            printf("%-35s %d\n", y, z);
-
-            i++;
+        for (i = start; i < end; i++) {
+            printf("%s\t%d\n", rows[i].productName, rows[i].totalUnits);
         }
 
-        if (!SQL_SUCCEEDED(ret) && ret != SQL_NO_DATA) {
-            break;
-        }
-
-        /* Check whether an 11th product exists */
-        if (i == 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (SQL_SUCCEEDED(ret)) {
-                has_next = 1;
-            }
-            else if (ret != SQL_NO_DATA) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                break;
-            }
-        }
-
-        if (i == 0) {
-            printf("No products found for this customer.\n");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("---------------------------------------------\n");
-
+        printf("\nPage %d/%d ", page + 1, (count + 9) / 10);
         if (page > 0) {
-            printf("< Previous page");
+            printf("[< Previous] ");
         }
-
-        if (page > 0 && has_next) {
-            printf(" | ");
+        if (end < count) {
+            printf("[> Next] ");
         }
+        printf("[q Exit] > ");
 
-        if (has_next) {
-            printf("> Next page");
-        }
-
-        if (page == 0 && !has_next) {
-            printf("No more pages.");
-            SQLCloseCursor(stmt);
+        if (!fgets(nav, (int) sizeof(nav), stdin)) {
             break;
         }
 
-        printf("\nEnter an option (<, > or q): ");
-        scanf(" %c", &option);
-
-        SQLCloseCursor(stmt);
-
-        if (option == '>' && has_next) {
+        if (nav[0] == '>' && end < count) {
             page++;
-        }
-        else if (option == '<' && page > 0) {
+        } else if (nav[0] == '<' && page > 0) {
             page--;
-        }
-        else {
+        } else {
             break;
         }
+        printf("\n");
     }
 
-    /* Free resources */
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    printf("\n");
+    free(rows);
 }
 
 /**
  * @brief Opción 3: Balance total (pagos - compras) del cliente.
  */
 int Balance(SQLHDBC dbc, int customerNumber) {
-
     SQLHSTMT stmt = NULL;
-
-    int ret;
-    SQLRETURN ret2;
+    SQLRETURN ret;
 
     double balance = 0.0;
     SQLINTEGER custNum = (SQLINTEGER) customerNumber;
 
-    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", dbc, SQL_HANDLE_DBC);
+        odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
         return EXIT_FAILURE;
     }
 
-    /* Prepare statement */
     ret = SQLPrepare(stmt, (SQLCHAR *)
         "SELECT "
         "  COALESCE((SELECT SUM(amount) FROM payments WHERE customernumber = ?), 0) - "
@@ -431,56 +452,34 @@ int Balance(SQLHDBC dbc, int customerNumber) {
         "            WHERE o.customernumber = ?), 0) AS balance", SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
-    /* Bind parameters */
-    ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
-                           SQL_C_SLONG, SQL_INTEGER,
-                           0, 0, &custNum, 0, NULL);
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
+    (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &custNum, 0, NULL);
+    (void) SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &custNum, 0, NULL);
 
-    ret = SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
-                           SQL_C_SLONG, SQL_INTEGER,
-                           0, 0, &custNum, 0, NULL);
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
-        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Execute query */
     ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
-    /* Bind column */
     (void) SQLBindCol(stmt, 1, SQL_C_DOUBLE, &balance, 0, NULL);
 
-    /* Fetch: solo devuelve 1 fila con el saldo total */
     if (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("Balance = %.2f\n", balance);
+        printf("Balance = %.2f\n\n", balance);
     } else {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return EXIT_FAILURE;
     }
 
     (void) SQLCloseCursor(stmt);
-
-    /* Free up statement handle */
-    ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    if (!SQL_SUCCEEDED(ret2)) {
-        odbc_extract_error("", stmt, SQL_HANDLE_STMT);
+    if (!SQL_SUCCEEDED(SQLFreeHandle(SQL_HANDLE_STMT, stmt))) {
+        odbc_extract_error("SQLFreeHandle", stmt, SQL_HANDLE_STMT);
         return EXIT_FAILURE;
     }
 
