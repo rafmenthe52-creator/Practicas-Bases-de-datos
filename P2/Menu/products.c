@@ -264,6 +264,15 @@ int ProductFind(SQLHDBC dbc, char *name)
 
     int i = 0;
 
+    SQLINTEGER offset;
+
+    int page = 0;
+    int has_next;
+    char option;
+
+    SQLLEN paramIndicator = SQL_NTS;
+    SQLLEN offsetIndicator;
+
     /* Add % before and after the name */
     x[0] = '%';
 
@@ -337,19 +346,103 @@ int ProductFind(SQLHDBC dbc, char *name)
         return EXIT_FAILURE;
     }
 
-    /* Fetch and display results */
-    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%s | %s\n", code, productName);
+    /* Pagination */
+    while (1) {
+
+        offset = page * 10;
+        i = 0;
+        has_next = 0;
+
+        ret = SQLExecute(stmt);
+
+        if (!SQL_SUCCEEDED(ret)) {
+            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
+            break;
+        }
+
+        printf("\nProducts found:\n");
+        printf("-----------------------------------\n");
+
+        /* Display the first 10 products */
+        while (i < 10) {
+
+            ret = SQLFetch(stmt);
+
+            if (ret == SQL_NO_DATA) {
+                break;
+            }
+
+            if (!SQL_SUCCEEDED(ret)) {
+                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+                break;
+            }
+
+            printf("%s | %s\n", code, productName);
+
+            i++;
+        }
+
+        if (!SQL_SUCCEEDED(ret) && ret != SQL_NO_DATA) {
+            break;
+        }
+
+        /* Check whether an 11th product exists */
+        if (i == 10) {
+
+            ret = SQLFetch(stmt);
+
+            if (SQL_SUCCEEDED(ret)) {
+                has_next = 1;
+            }
+            else if (ret != SQL_NO_DATA) {
+                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+                break;
+            }
+        }
+
+        if (i == 0) {
+            printf("No products found.\n");
+            SQLCloseCursor(stmt);
+            break;
+        }
+
+        printf("-----------------------------------\n");
+
+        if (page > 0) {
+            printf("< Previous page");
+        }
+
+        if (page > 0 && has_next) {
+            printf(" | ");
+        }
+
+        if (has_next) {
+            printf("> Next page");
+        }
+
+        if (page == 0 && !has_next) {
+            printf("No more pages.\n");
+            SQLCloseCursor(stmt);
+            break;
+        }
+
+        printf("\nEnter an option (<, > or q): ");
+        scanf(" %c", &option);
+
+        SQLCloseCursor(stmt);
+
+        if (option == '>' && has_next) {
+            page++;
+        }
+        else if (option == '<' && page > 0) {
+            page--;
+        }
+        else {
+            break;
+        }
     }
 
-    if (ret != SQL_NO_DATA) {
-        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Close cursor and free statement */
-    SQLCloseCursor(stmt);
+    /* Free resources */
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 
     return EXIT_SUCCESS;
