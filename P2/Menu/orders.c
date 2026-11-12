@@ -17,12 +17,12 @@ static int ShowOrdersSubMenu(void);
  * @return selected option
  * @author Rafael Velasco Wagner
  */
-
 void ShowOrdersMenu(SQLHDBC dbc) {
     int nChoice = 0;
-    char *orderstart, *orderfinish;
-    int ordernumber;
-    
+    char input[BufferLength] = "\0";
+    char orderstart[16] = "\0";
+    char orderfinish[16] = "\0";
+    int ordernumber = 0;
 
     do {
         nChoice = ShowOrdersSubMenu();
@@ -33,18 +33,23 @@ void ShowOrdersMenu(SQLHDBC dbc) {
                 break;
 
             case 2: {
-                fprintf(stdin, "Enter the date from which you want to see the orders in the following way (dd/mm/yyyy)> ");
-                fscanf(stdin, "%c", orderstart);
-                fprintf(stdin, "Enter the date until which you want to see the orders in the following way (dd/mm/yyyy)> ");
-                fscanf(stdin, "%c", orderfinish);
-                ListOrdersByRange(dbc, orderstart, orderfinish);
+                printf("Enter dates (YYYY-MM-DD - YYYY-MM-DD) > ");
+                if (fgets(input, (int) sizeof(input), stdin) != NULL) {
+                    if (sscanf(input, "%15s - %15s", orderstart, orderfinish) == 2) {
+                        ListOrdersByRange(dbc, orderstart, orderfinish);
+                    } else {
+                        printf("Invalid date format. Expected YYYY-MM-DD - YYYY-MM-DD\n\n");
+                    }
+                }
             }
                 break;
 
             case 3: {
-                fprintf(stdin, "Enter the order number to get the order details > ");
-                fscanf(stdin, "%d", &ordernumber);
-                ShowOrderDetails(dbc, (SQLINTEGER)ordernumber);
+                printf("Enter the order number to get the order details > ");
+                if (fgets(input, (int) sizeof(input), stdin) != NULL) {
+                    ordernumber = atoi(input);
+                    ShowOrderDetails(dbc, (SQLINTEGER) ordernumber);
+                }
             }
                 break;
 
@@ -54,7 +59,6 @@ void ShowOrdersMenu(SQLHDBC dbc) {
                 break;
         }
     } while (nChoice != 4);
-
 }
 
 int ShowOrdersSubMenu() {
@@ -69,7 +73,7 @@ int ShowOrdersSubMenu() {
                " (4) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, 16, stdin))
+        if (!fgets(buf, (int) sizeof(buf), stdin))
             /* reading input failed, give up: */
             nSelected = 0;
         else
@@ -87,488 +91,187 @@ int ShowOrdersSubMenu() {
 
 void ListOpenOrders(SQLHDBC dbc)
 {
-    SQLHENV env = NULL;
     SQLHSTMT stmt = NULL;
-
     SQLRETURN ret;
-
-    SQLINTEGER ordernumber;
-    SQLINTEGER offset;
-
-    SQLLEN indicator;
-
-    int page = 0;
-    int i;
-    int has_next;
-    int error = 0;
-
-    char option;
+    SQLINTEGER ordernumber = 0;
+    int found = 0;
 
     /* Allocate statement */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        odbc_disconnect(env, dbc);
         return;
     }
 
-    /* Prepare query */
-    ret = SQLPrepare(stmt,
+    /* Execute query (no user parameters needed) */
+    ret = SQLExecDirect(stmt,
         (SQLCHAR *)
         "SELECT orderNumber "
         "FROM orders "
         "WHERE shippedDate IS NULL "
-        "ORDER BY orderNumber "
-        "LIMIT 11 OFFSET ?",
+        "ORDER BY orderNumber",
         SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
-    }
-
-    /* Bind offset parameter */
-    ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
-        SQL_C_SLONG, SQL_INTEGER, 0, 0,
-        &offset, 0, NULL);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        odbc_extract_error("SQLExecDirect", stmt, SQL_HANDLE_STMT);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
     /* Bind result column */
-    ret = SQLBindCol(stmt, 1, SQL_C_SLONG,
-        &ordernumber, sizeof(ordernumber), &indicator);
-
+    ret = SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    /* Paginación */
-    while (1) {
-
-        offset = page * 10;
-        i = 0;
-        has_next = 0;
-
-        ret = SQLExecute(stmt);
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-            error = 1;
-            break;
-        }
-
-        printf("\nOpen orders\n");
-        printf("--------------------------\n");
-
-        /* Display the first 10 orders */
-        while (i < 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (ret == SQL_NO_DATA) {
-                break;
-            }
-
-            if (!SQL_SUCCEEDED(ret)) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                error = 1;
-                break;
-            }
-
-            printf("Order number: %d\n", ordernumber);
-
-            i++;
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        /* Check whether an 11th order exists */
-        if (i == 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (SQL_SUCCEEDED(ret)) {
-                has_next = 1;
-            }
-            else if (ret != SQL_NO_DATA) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                error = 1;
-            }
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        if (i == 0) {
-            if (page == 0) {
-                printf("There are no open orders.\n");
-            }
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("--------------------------\n");
-
-        if (page > 0) {
-            printf("< Previous page");
-        }
-
-        if (page > 0 && has_next) {
-            printf(" | > Next page");
-        }
-
-        if (page == 0 && !has_next) {
-            printf("No more pages.");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("\nEnter an option (<, > or q): ");
-        scanf(" %c", &option);
-
-        SQLCloseCursor(stmt);
-
-        if (option == '>' && has_next) {
-            page++;
-        }
-        else if (option == '<' && page > 0) {
-            page--;
-        }
-        else {
-            break;
-        }
+    /* Loop through the rows in the result-set */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        printf("%d\n", ordernumber);
+        found = 1;
     }
 
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+    } else if (!found) {
+        printf("There are no open orders.\n");
+    }
+
+    printf("\n");
+
     /* Free resources */
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    odbc_disconnect(env, dbc);
+    (void) SQLCloseCursor(stmt);
+    (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
-void ListOrdersByRange(SQLHDBC dbc,char *start_date, char *end_date)
+void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date)
 {
-    SQLHENV env = NULL;
-    SQLHDBC dbc = NULL;
     SQLHSTMT stmt = NULL;
-
     SQLRETURN ret;
 
-    SQLINTEGER ordernumber;
-    SQLINTEGER offset;
-
+    SQLINTEGER ordernumber = 0;
     char orderdate[BufferLength] = "\0";
     char shippeddate[BufferLength] = "\0";
 
-    SQLLEN indicator1;
-    SQLLEN indicator2;
-    SQLLEN indicator3;
-    SQLLEN indicator4;
-    SQLLEN indicator5;
-
-    int page = 0;
-    int i;
-    int has_next;
-    int error = 0;
-
-    char option;
-
-    /* Connect to database */
-    ret = odbc_connect(&env, &dbc);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        printf("Error connecting to database.\n");
-        return;
-    }
+    SQLLEN indShipped = 0;
+    int found = 0;
 
     /* Allocate statement */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        odbc_disconnect(env, dbc);
         return;
     }
 
     /* Prepare query */
     ret = SQLPrepare(stmt,
         (SQLCHAR *)
-        "SELECT orderNumber, orderDate, shippedDate "
+        "SELECT ordernumber, orderdate, shippeddate "
         "FROM orders "
-        "WHERE orderDate BETWEEN ? AND ? "
-        "ORDER BY orderNumber "
-        "LIMIT 11 OFFSET ?",
+        "WHERE orderdate BETWEEN ? AND ? "
+        "ORDER BY ordernumber",
         SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
     /* Bind start date */
     ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
-        SQL_C_CHAR, SQL_TYPE_DATE, 10, 0,
-        start_date, 11, &indicator1);
+        SQL_C_CHAR, SQL_VARCHAR, 10, 0,
+        start_date, 0, NULL);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
-
-    indicator1 = SQL_NTS;
 
     /* Bind end date */
     ret = SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
-        SQL_C_CHAR, SQL_TYPE_DATE, 10, 0,
-        end_date, 11, &indicator2);
+        SQL_C_CHAR, SQL_VARCHAR, 10, 0,
+        end_date, 0, NULL);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    indicator2 = SQL_NTS;
-
-    /* Bind offset */
-    ret = SQLBindParameter(stmt, 3, SQL_PARAM_INPUT,
-        SQL_C_SLONG, SQL_INTEGER, 0, 0,
-        &offset, 0, &indicator3);
-
+    /* Execute query */
+    ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
     /* Bind result columns */
-    ret = SQLBindCol(stmt, 1, SQL_C_SLONG,
-        &ordernumber, sizeof(ordernumber), &indicator3);
+    (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
+    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, orderdate, sizeof(orderdate), NULL);
+    (void) SQLBindCol(stmt, 3, SQL_C_CHAR, shippeddate, sizeof(shippeddate), &indShipped);
 
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
+    /* Loop through the rows in the result-set */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        if (indShipped == SQL_NULL_DATA) {
+            printf("%d\t%s\tNot shipped\n", ordernumber, orderdate);
+        } else {
+            printf("%d\t%s\t%s\n", ordernumber, orderdate, shippeddate);
+        }
+        found = 1;
     }
 
-    ret = SQLBindCol(stmt, 2, SQL_C_CHAR,
-        orderdate, sizeof(orderdate), &indicator4);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+    } else if (!found) {
+        printf("No orders found in this date range.\n");
     }
 
-    ret = SQLBindCol(stmt, 3, SQL_C_CHAR,
-        shippeddate, sizeof(shippeddate), &indicator5);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
-    }
-
-    /* Pagination */
-    while (1) {
-
-        offset = page * 10;
-        i = 0;
-        has_next = 0;
-
-        ret = SQLExecute(stmt);
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-            error = 1;
-            break;
-        }
-
-        printf("\nOrders between %s and %s\n", start_date, end_date);
-        printf("--------------------------------------------------\n");
-        printf("%-15s %-15s %-15s\n",
-            "Order number", "Order date", "Shipped date");
-        printf("--------------------------------------------------\n");
-
-        /* Display the first 10 orders */
-        while (i < 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (ret == SQL_NO_DATA) {
-                break;
-            }
-
-            if (!SQL_SUCCEEDED(ret)) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                error = 1;
-                break;
-            }
-
-            printf("%-15d %-15s ", ordernumber, orderdate);
-
-            if (indicator5 == SQL_NULL_DATA) {
-                printf("%-15s\n", "Not shipped");
-            }
-            else {
-                printf("%-15s\n", shippeddate);
-            }
-
-            i++;
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        /* Check whether an 11th order exists */
-        if (i == 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (SQL_SUCCEEDED(ret)) {
-                has_next = 1;
-            }
-            else if (ret != SQL_NO_DATA) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                error = 1;
-            }
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        if (i == 0) {
-            if (page == 0) {
-                printf("No orders found in this date range.\n");
-            }
-
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("--------------------------------------------------\n");
-
-        if (page > 0) {
-            printf("< Previous page");
-        }
-
-        if (page > 0 && has_next) {
-            printf(" |  > Next page");
-        }
-
-        if (page == 0 && !has_next) {
-            printf("No more pages.");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("\nEnter an option (<, > or q): ");
-        scanf(" %c", &option);
-
-        SQLCloseCursor(stmt);
-
-        if (option == '>' && has_next) {
-            page++;
-        }
-        else if (option == '<' && page > 0) {
-            page--;
-        }
-        else {
-            break;
-        }
-    }
+    printf("\n");
 
     /* Free resources */
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    odbc_disconnect(env, dbc);
+    (void) SQLCloseCursor(stmt);
+    (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
-void ShowOrderDetails(SQLHDBC dbc,SQLINTEGER ordernumber)
+void ShowOrderDetails(SQLHDBC dbc, SQLINTEGER ordernumber)
 {
-    SQLHENV env = NULL;
     SQLHSTMT stmt = NULL;
-
     SQLRETURN ret;
 
-    SQLINTEGER x;
-    SQLINTEGER y;
-    SQLINTEGER offset;
-
-    SQLDOUBLE total;
-    SQLDOUBLE price;
+    SQLINTEGER quantity = 0;
+    SQLDOUBLE total = 0.0;
+    SQLDOUBLE price = 0.0;
 
     char orderdate[BufferLength] = "\0";
     char status[BufferLength] = "\0";
     char productcode[BufferLength] = "\0";
 
-    SQLLEN indicator1;
-    SQLLEN indicator2;
-    SQLLEN indicator3;
-    SQLLEN indicator4;
-    SQLLEN indicator5;
-    SQLLEN indicator6;
-    SQLLEN indicator_offset;
-
-    int page = 0;
-    int i;
-    int has_next;
-    int error = 0;
-
-    char option;
-
     /* Allocate statement */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        odbc_disconnect(env, dbc);
         return;
     }
 
-    /* Prepare query */
+    /* Prepare query (una única consulta con función ventana para el total) */
     ret = SQLPrepare(stmt,
         (SQLCHAR *)
         "SELECT o.orderDate, o.status, "
-        "SUM(od.quantityOrdered * od.priceEach) OVER (), "
-        "od.productCode, od.quantityOrdered, od.priceEach "
+        "       SUM(od.quantityOrdered * od.priceEach) OVER (), "
+        "       od.productCode, od.quantityOrdered, od.priceEach "
         "FROM orders o "
         "JOIN orderdetails od ON o.orderNumber = od.orderNumber "
         "WHERE o.orderNumber = ? "
-        "ORDER BY od.orderLineNumber "
-        "LIMIT 11 OFFSET ?",
+        "ORDER BY od.orderLineNumber",
         SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
@@ -579,212 +282,59 @@ void ShowOrderDetails(SQLHDBC dbc,SQLINTEGER ordernumber)
 
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    /* Bind offset */
-    ret = SQLBindParameter(stmt, 2, SQL_PARAM_INPUT,
-        SQL_C_SLONG, SQL_INTEGER, 0, 0,
-        &offset, 0, &indicator_offset);
-
+    /* Execute query */
+    ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
     /* Bind result columns */
+    (void) SQLBindCol(stmt, 1, SQL_C_CHAR, orderdate, sizeof(orderdate), NULL);
+    (void) SQLBindCol(stmt, 2, SQL_C_CHAR, status, sizeof(status), NULL);
+    (void) SQLBindCol(stmt, 3, SQL_C_DOUBLE, &total, 0, NULL);
+    (void) SQLBindCol(stmt, 4, SQL_C_CHAR, productcode, sizeof(productcode), NULL);
+    (void) SQLBindCol(stmt, 5, SQL_C_SLONG, &quantity, 0, NULL);
+    (void) SQLBindCol(stmt, 6, SQL_C_DOUBLE, &price, 0, NULL);
 
-    ret = SQLBindCol(stmt, 1, SQL_C_CHAR,
-        orderdate, sizeof(orderdate), &indicator1);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+    /* Fetch first row */
+    ret = SQLFetch(stmt);
+    if (ret == SQL_NO_DATA) {
+        printf("Order %d not found.\n\n", ordernumber);
+        (void) SQLCloseCursor(stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    ret = SQLBindCol(stmt, 2, SQL_C_CHAR,
-        status, sizeof(status), &indicator2);
-
     if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+        (void) SQLCloseCursor(stmt);
+        (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         return;
     }
 
-    ret = SQLBindCol(stmt, 3, SQL_C_DOUBLE,
-        &total, sizeof(total), &indicator3);
+    /* Línea 1: fecha del pedido y estado */
+    printf("%s\t%s\n", orderdate, status);
+    /* Línea 2: coste total del pedido */
+    printf("%.2f\n", total);
 
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
+    /* Líneas siguientes: cada producto del pedido */
+    do {
+        printf("%s\t%d\t%.2f\n", productcode, quantity, price);
+    } while (SQL_SUCCEEDED(ret = SQLFetch(stmt)));
+
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
     }
 
-    ret = SQLBindCol(stmt, 4, SQL_C_CHAR,
-        productcode, sizeof(productcode), &indicator4);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
-    }
-
-    ret = SQLBindCol(stmt, 5, SQL_C_SLONG,
-        &x, sizeof(x), &indicator5);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
-    }
-
-    ret = SQLBindCol(stmt, 6, SQL_C_DOUBLE,
-        &price, sizeof(price), &indicator6);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        odbc_disconnect(env, dbc);
-        return;
-    }
-
-    /* Pagination */
-    while (1) {
-
-        offset = page * 10;
-        i = 0;
-        has_next = 0;
-
-        ret = SQLExecute(stmt);
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-            error = 1;
-            break;
-        }
-
-        /* Fetch first row */
-        ret = SQLFetch(stmt);
-
-        if (ret == SQL_NO_DATA) {
-            if (page == 0) {
-                printf("Order %d not found.\n", ordernumber);
-            }
-
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-            SQLCloseCursor(stmt);
-            error = 1;
-            break;
-        }
-
-        /* Display order information */
-        printf("\nOrder number: %d\n", ordernumber);
-        printf("Order date: %s\n", orderdate);
-        printf("Status: %s\n", status);
-        printf("Total cost: %.2f\n", total);
-
-        printf("\nOrder details\n");
-        printf("--------------------------------------------------\n");
-        printf("%-20s %-15s %-15s\n",
-            "Product code", "Quantity", "Price each");
-        printf("--------------------------------------------------\n");
-
-        /* Display the first 10 products */
-        while (i < 10 && SQL_SUCCEEDED(ret)) {
-
-            printf("%-20s %-15d %.2f\n",
-                productcode, x, price);
-
-            i++;
-
-            if (i < 10) {
-                ret = SQLFetch(stmt);
-
-                if (ret != SQL_NO_DATA && !SQL_SUCCEEDED(ret)) {
-                    odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                    error = 1;
-                    break;
-                }
-            }
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        /* Check whether an 11th product exists */
-        if (i == 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (SQL_SUCCEEDED(ret)) {
-                has_next = 1;
-            }
-            else if (ret != SQL_NO_DATA) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                error = 1;
-            }
-        }
-
-        if (error) {
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("--------------------------------------------------\n");
-
-        if (page > 0) {
-            printf("< Previous page");
-        }
-
-        if (page > 0 && has_next) {
-            printf(" | ");
-        }
-
-        if (has_next) {
-            printf("> Next page");
-        }
-
-        if (page == 0 && !has_next) {
-            printf("No more pages.\n");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("\nEnter an option (<, > or q): ");
-        scanf(" %c", &option);
-
-        SQLCloseCursor(stmt);
-
-        if (option == '>' && has_next) {
-            page++;
-        }
-        else if (option == '<' && page > 0) {
-            page--;
-        }
-        else {
-            break;
-        }
-    }
+    printf("\n");
 
     /* Free resources */
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-    odbc_disconnect(env, dbc);
+    (void) SQLCloseCursor(stmt);
+    (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
-

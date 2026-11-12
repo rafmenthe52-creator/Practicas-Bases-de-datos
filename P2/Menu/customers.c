@@ -10,6 +10,18 @@
 
 static int ShowCustomersSubMenu(void);
 
+typedef struct {
+    int customerNumber;
+    char customerName[BUFFER_LEN];
+    char contactFirstName[BUFFER_LEN];
+    char contactLastName[BUFFER_LEN];
+} CustomerRow;
+
+typedef struct {
+    char productName[BUFFER_LEN];
+    int totalUnits;
+} CustomerProductRow;
+
 /**
  * @brief Shows the Customers submenu and processes user selection.
  *
