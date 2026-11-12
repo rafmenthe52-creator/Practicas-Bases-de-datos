@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sql.h>
 #include <sqlext.h>
-#include "customers.h"
+#include "orders.h"
 #include "odbc.h"
 
 #define BufferLength 512
