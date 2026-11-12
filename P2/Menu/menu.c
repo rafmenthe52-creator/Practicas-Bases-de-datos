@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <odbc.h>
+#include "odbc.h"
 #include <sql.h>
 #include <sqlext.h>
 #include "customers.h"
