@@ -245,3 +245,112 @@ int ProductFind(SQLHDBC dbc, char *name) {
 
     return EXIT_SUCCESS;
 }
+
+int ProductFind(SQLHDBC dbc, char *name)
+{
+    SQLHSTMT stmt = NULL;
+
+    SQLRETURN ret;
+
+    char x[BufferLength] = "\0";
+    char code[BufferLength] = "\0";
+    char productName[BufferLength] = "\0";
+
+    SQLLEN indicator1;
+    SQLLEN indicator2;
+    SQLLEN indicator3;
+
+    SQLLEN paramIndicator = SQL_NTS;
+
+    int i = 0;
+
+    /* Add % before and after the name */
+    x[0] = '%';
+
+    while (name[i] != '\0' && i < BufferLength - 3) {
+        x[i + 1] = name[i];
+        i++;
+    }
+
+    x[i + 1] = '%';
+    x[i + 2] = '\0';
+
+    /* Allocate a statement handle */
+    ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
+        return EXIT_FAILURE;
+    }
+
+    /* Prepare query */
+    ret = SQLPrepare(stmt, (SQLCHAR *)
+        "SELECT productCode, productName "
+        "FROM products "
+        "WHERE productName LIKE ? "
+        "ORDER BY productCode",
+        SQL_NTS);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    /* Bind parameter */
+    ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
+        SQL_C_CHAR, SQL_VARCHAR,
+        BufferLength, 0,
+        x, BufferLength, &paramIndicator);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    /* Execute query */
+    ret = SQLExecute(stmt);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    /* Bind columns */
+    ret = SQLBindCol(stmt, 1, SQL_C_CHAR,
+        code, sizeof(code), &indicator1);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    ret = SQLBindCol(stmt, 2, SQL_C_CHAR,
+        productName, sizeof(productName), &indicator2);
+
+    if (!SQL_SUCCEEDED(ret)) {
+        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    /* Fetch and display results */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        printf("%s | %s\n", code, productName);
+    }
+
+    if (ret != SQL_NO_DATA) {
+        odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return EXIT_FAILURE;
+    }
+
+    /* Close cursor and free statement */
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+    return EXIT_SUCCESS;
+}
