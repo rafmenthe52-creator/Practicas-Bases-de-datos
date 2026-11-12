@@ -277,7 +277,7 @@ int FindCustomer(SQLHDBC dbc, char *name) {
 /**
  * @brief Opción 2: List Products comprados por un cliente específico (con paginación).
  */
-void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
+int ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     SQLHSTMT stmt = NULL;
     SQLRETURN ret;
 
@@ -297,7 +297,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        return;
+        return EXIT_FAILURE;
     }
 
     /* Solo seleccionamos productName y SUM(quantityOrdered), ordenando por productCode */
@@ -315,7 +315,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return;
+        return EXIT_FAILURE;
     }
 
     ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
@@ -325,14 +325,14 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return;
+        return EXIT_FAILURE;
     }
 
     ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return;
+        return EXIT_FAILURE;
     }
 
     (void) SQLBindCol(stmt, 1, SQL_C_CHAR, y, sizeof(y), NULL);
@@ -342,7 +342,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     if (!rows) {
         (void) SQLCloseCursor(stmt);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return;
+        return EXIT_FAILURE;
     }
 
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
@@ -353,7 +353,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
                 free(rows);
                 (void) SQLCloseCursor(stmt);
                 (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-                return;
+                return EXIT_FAILURE;
             }
             rows = tmp;
         }
@@ -368,7 +368,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
         free(rows);
         (void) SQLCloseCursor(stmt);
         (void) SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return;
+        return EXIT_FAILURE;
     }
 
     (void) SQLCloseCursor(stmt);
@@ -377,7 +377,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
     if (count == 0) {
         printf("No products found for this customer.\n\n");
         free(rows);
-        return;
+        return EXIT_SUCCESS;
     }
 
     if (count <= 10) {
@@ -386,7 +386,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
         }
         printf("\n");
         free(rows);
-        return;
+        return EXIT_SUCCESS;
     }
 
     while (1) {
@@ -425,6 +425,7 @@ void ListProducts(SQLHDBC dbc, SQLINTEGER customernumber) {
 
     printf("\n");
     free(rows);
+    return EXIT_SUCCESS;
 }
 
 /**
