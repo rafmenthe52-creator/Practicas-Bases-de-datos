@@ -5,11 +5,8 @@
 #include <sqlext.h>
 
 /* CONNECTION PARAMETERS, ADAPT TO YOUR SCENARIO */
-//#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \           
-//        "pwd=alumnodb;server=host.docker.internal;port=5432;database=classicmodels_new"
-
-#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \          
-        "pwd=alumnodb;server=localhost;database=test01"                     //Alex
+#define CONNECTION_PARS "driver={PostgreSQL ANSI};uid=alumnodb;" \
+        "pwd=alumnodb;server=localhost;database=classicmodels"
 
 
 /* report most recient error */

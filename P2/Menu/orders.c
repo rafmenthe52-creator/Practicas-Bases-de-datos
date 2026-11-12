@@ -45,7 +45,7 @@ void ShowOrdersMenu(SQLHDBC dbc) {
                 break;
 
             case 3: {
-                printf("Enter the order number to get the order details > ");
+                printf("Enter ordernumber > ");
                 if (fgets(input, (int) sizeof(input), stdin) != NULL) {
                     ordernumber = atoi(input);
                     ShowOrderDetails(dbc, (SQLINTEGER) ordernumber);
@@ -61,7 +61,7 @@ void ShowOrdersMenu(SQLHDBC dbc) {
     } while (nChoice != 4);
 }
 
-int ShowOrdersSubMenu() {
+static int ShowOrdersSubMenu(void) {
     int nSelected = 0;
     char buf[16];
 
@@ -217,9 +217,9 @@ void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date)
     /* Loop through the rows in the result-set */
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
         if (indShipped == SQL_NULL_DATA) {
-            printf("%d\t%s\tNot shipped\n", ordernumber, orderdate);
+            printf("%d %s Not shipped\n", ordernumber, orderdate);
         } else {
-            printf("%d\t%s\t%s\n", ordernumber, orderdate, shippeddate);
+            printf("%d %s %s\n", ordernumber, orderdate, shippeddate);
         }
         found = 1;
     }
@@ -319,13 +319,13 @@ void ShowOrderDetails(SQLHDBC dbc, SQLINTEGER ordernumber)
     }
 
     /* Línea 1: fecha del pedido y estado */
-    printf("%s\t%s\n", orderdate, status);
+    printf("%s %s\n", orderdate, status);
     /* Línea 2: coste total del pedido */
     printf("%.2f\n", total);
 
     /* Líneas siguientes: cada producto del pedido */
     do {
-        printf("%s\t%d\t%.2f\n", productcode, quantity, price);
+        printf("%s %d %.2f\n", productcode, quantity, price);
     } while (SQL_SUCCEEDED(ret = SQLFetch(stmt)));
 
     if (ret != SQL_NO_DATA) {

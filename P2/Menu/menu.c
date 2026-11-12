@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <odbc.h>
+#include "odbc.h"
 #include <sql.h>
 #include <sqlext.h>
 #include "customers.h"
@@ -24,7 +24,7 @@
  * if the function is declared in a file and used in another
  * */
 
-static int ShowMainMenu();
+static int ShowMainMenu(void);
 
 /* #endif //A2BIS_MENU_TEMPLATE_H */
 
@@ -102,7 +102,7 @@ int main(void) {
  * @author rmarabini
  */
 
-int ShowMainMenu() {
+static int ShowMainMenu(void) {
     int nSelected = 0;
     char buf[16]; /* buffer for reading user input
                      in theory we only need 1 char

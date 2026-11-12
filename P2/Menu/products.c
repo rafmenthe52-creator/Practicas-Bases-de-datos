@@ -24,7 +24,7 @@ void ShowProductsMenu(SQLHDBC dbc) {
         nChoice = ShowProductsSubMenu();
         switch (nChoice) {
             case 1: {
-                printf("Enter the product code to check stock > ");
+                printf("Enter productcode > ");
                 if (fgets(productCode, (int) sizeof(productCode), stdin)) {
                     productCode[strcspn(productCode, "\r\n")] = '\0';
                     (void) ProductStock(dbc, productCode);
@@ -33,7 +33,7 @@ void ShowProductsMenu(SQLHDBC dbc) {
                 break;
 
             case 2: {
-                printf("Enter the product name to find > ");
+                printf("Enter productname > ");
                 if (fgets(productName, (int) sizeof(productName), stdin)) {
                     productName[strcspn(productName, "\r\n")] = '\0';
                     (void) ProductFind(dbc, productName);
@@ -174,7 +174,7 @@ int ProductFind(SQLHDBC dbc, char *name) {
     ret = SQLPrepare(stmt, (SQLCHAR *)
         "SELECT productcode, productname "
         "FROM products "
-        "WHERE productname LIKE ? "
+        "WHERE productname ILIKE ? "
         "ORDER BY productcode", SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret)) {
@@ -198,7 +198,7 @@ int ProductFind(SQLHDBC dbc, char *name) {
     (void) SQLBindCol(stmt, 2, SQL_C_CHAR, productName, BufferLength, NULL);
 
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%s\t%s\n", code, productName);
+        printf("%s %s\n", code, productName);
     }
 
     if (ret != SQL_NO_DATA) {

@@ -1,6 +1,8 @@
 CC = gcc -g
-CFLAGS = -Wall -Wextra -pedantic -ansi
-LDLIBS = -lodbc
+ODBC_CFLAGS ?= $(shell odbc_config --cflags 2>/dev/null)
+ODBC_LIBS ?= $(shell odbc_config --libs 2>/dev/null)
+CFLAGS = -Wall -Wextra -pedantic -ansi $(ODBC_CFLAGS)
+LDLIBS = $(if $(ODBC_LIBS),$(ODBC_LIBS),-lodbc)
 
 export PGDATABASE := classicmodels
 export PGUSER := alumnodb

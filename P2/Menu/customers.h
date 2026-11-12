@@ -36,3 +36,4 @@ int ListProducts(SQLHDBC dbc, SQLINTEGER customerNumber);
 int Balance(SQLHDBC dbc, int customerNumber);
 
 #endif
+

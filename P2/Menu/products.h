@@ -30,3 +30,4 @@ int ProductStock(SQLHDBC dbc, char *productCode);
 int ProductFind(SQLHDBC dbc, char *name);
 
 #endif
+

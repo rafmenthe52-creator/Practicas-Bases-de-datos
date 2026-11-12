@@ -33,3 +33,4 @@ void ListOrdersByRange(SQLHDBC dbc, char *start_date, char *end_date);
 void ShowOrderDetails(SQLHDBC dbc, SQLINTEGER ordernumber);
 
 #endif
+
