@@ -12,9 +12,7 @@ static int ShowProductsSubMenu(void);
 
 /**
  * @brief Shows the Products submenu and processes user selection.
- *
- *
- * @return selected option
+ * @param dbc Active database connection handle.
  * @author Alejandro Echeverria
  */
 void ShowProductsMenu(SQLHDBC dbc) {
@@ -25,11 +23,9 @@ void ShowProductsMenu(SQLHDBC dbc) {
     do {
         nChoice = ShowProductsSubMenu();
         switch (nChoice) {
-
             case 1: {
-                printf("Enter the product number to check stock > ");
+                printf("Enter the product code to check stock > ");
                 if (fgets(productCode, (int) sizeof(productCode), stdin)) {
-                    /* Eliminamos el salto de línea al final */
                     productCode[strcspn(productCode, "\r\n")] = '\0';
                     (void) ProductStock(dbc, productCode);
                 }
@@ -39,7 +35,6 @@ void ShowProductsMenu(SQLHDBC dbc) {
             case 2: {
                 printf("Enter the product name to find > ");
                 if (fgets(productName, (int) sizeof(productName), stdin)) {
-                    /* Eliminamos el salto de línea al final */
                     productName[strcspn(productName, "\r\n")] = '\0';
                     (void) ProductFind(dbc, productName);
                 }
@@ -56,32 +51,28 @@ void ShowProductsMenu(SQLHDBC dbc) {
         }
     } while (nChoice != 3);
 }
+
 /**
- * @brief prints the Products submenu and allows to select an option.
- *
- * @return selected option
+ * @brief Prints the Products submenu and allows to select an option.
+ * @return Selected option.
  * @author Alejandro Echeverria
  */
-
-int ShowProductsSubMenu() {
+static int ShowProductsSubMenu(void) {
     int nSelected = 0;
-    char buf[16];
+    char buf[16] = "\0";
 
     do {
-
         printf(" (1) Stock\n"
                " (2) Find\n"
                " (3) Back\n\n");
 
         printf("Enter a number that corresponds to your choice > ");
-        if (!fgets(buf, (int) sizeof(buf), stdin))
-            /* reading input failed, give up: */
-            nSelected =0;
-        else
-            /* have some input, convert it to integer: */
+        if (!fgets(buf, (int) sizeof(buf), stdin)) {
+            nSelected = 0;
+        } else {
             nSelected = atoi(buf);
+        }
         printf("\n");
-
 
         if ((nSelected < 1) || (nSelected > 3)) {
             printf("You have entered an invalid choice. Please try again\n\n\n");
@@ -91,23 +82,21 @@ int ShowProductsSubMenu() {
     return nSelected;
 }
 
+/**
+ * @brief Consulta y muestra el stock disponible de un producto.
+ */
 int ProductStock(SQLHDBC dbc, char *productCode) {
-
     SQLHSTMT stmt = NULL;
-
     int ret;
     SQLRETURN ret2;
-
     SQLINTEGER stock = 0;
 
-    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", dbc, SQL_HANDLE_DBC);
         return EXIT_FAILURE;
     }
 
-    /* Prepare statement */
     ret = SQLPrepare(stmt, (SQLCHAR *)
         "SELECT quantityinstock "
         "FROM products "
@@ -119,7 +108,6 @@ int ProductStock(SQLHDBC dbc, char *productCode) {
         return EXIT_FAILURE;
     }
 
-    /* Bind parameter: productCode como cadena de entrada */
     ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
                            SQL_C_CHAR, SQL_VARCHAR,
                            strlen(productCode), 0,
@@ -130,7 +118,6 @@ int ProductStock(SQLHDBC dbc, char *productCode) {
         return EXIT_FAILURE;
     }
 
-    /* Execute query */
     ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
@@ -138,20 +125,16 @@ int ProductStock(SQLHDBC dbc, char *productCode) {
         return EXIT_FAILURE;
     }
 
-    /* Bind column: stock como entero */
     (void) SQLBindCol(stmt, 1, SQL_C_SLONG, &stock, 0, NULL);
 
-    /* Fetch: solo devuelve 1 fila con las unidades */
     if (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%d\n", stock);
+        printf("%d\n\n", stock);
     } else {
-        /* Si no devuelve fila, el producto no existe en la base de datos */
-        printf("Product not found\n");
+        printf("Product not found\n\n");
     }
 
     (void) SQLCloseCursor(stmt);
 
-    /* Free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
@@ -161,33 +144,27 @@ int ProductStock(SQLHDBC dbc, char *productCode) {
     return EXIT_SUCCESS;
 }
 
+/**
+ * @brief Busca y lista todos los productos cuyo nombre contenga la subcadena dada.
+ */
 int ProductFind(SQLHDBC dbc, char *name) {
-
     SQLHSTMT stmt = NULL;
-
     int ret;
     SQLRETURN ret2;
-
-    #define BufferLength 512
 
     char x[BufferLength] = "\0";
     char code[BufferLength] = "\0";
     char productName[BufferLength] = "\0";
-
     int i = 0;
 
-    /* Add % before and after the name */
     x[0] = '%';
-
     while (name[i] != '\0' && i < BufferLength - 3) {
         x[i + 1] = name[i];
         i++;
     }
-
     x[i + 1] = '%';
     x[i + 2] = '\0';
 
-    /* Allocate a statement handle */
     ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", dbc, SQL_HANDLE_DBC);
@@ -206,12 +183,10 @@ int ProductFind(SQLHDBC dbc, char *name) {
         return EXIT_FAILURE;
     }
 
-    /* Bind parameter */
     (void) SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
                             SQL_C_CHAR, SQL_VARCHAR,
                             BufferLength, 0, x, BufferLength, NULL);
 
-    /* Execute query */
     ret = SQLExecute(stmt);
     if (!SQL_SUCCEEDED(ret)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
@@ -219,13 +194,11 @@ int ProductFind(SQLHDBC dbc, char *name) {
         return EXIT_FAILURE;
     }
 
-    /* Bind columns */
     (void) SQLBindCol(stmt, 1, SQL_C_CHAR, code, BufferLength, NULL);
     (void) SQLBindCol(stmt, 2, SQL_C_CHAR, productName, BufferLength, NULL);
 
-    /* Loop through the rows in the result-set */
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%s | %s\n", code, productName);
+        printf("%s\t%s\n", code, productName);
     }
 
     if (ret != SQL_NO_DATA) {
@@ -236,214 +209,12 @@ int ProductFind(SQLHDBC dbc, char *name) {
 
     (void) SQLCloseCursor(stmt);
 
-    /* Free up statement handle */
     ret2 = SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     if (!SQL_SUCCEEDED(ret2)) {
         odbc_extract_error("", stmt, SQL_HANDLE_STMT);
         return EXIT_FAILURE;
     }
 
-    return EXIT_SUCCESS;
-}
-
-int ProductFind(SQLHDBC dbc, char *name)
-{
-    SQLHSTMT stmt = NULL;
-
-    SQLRETURN ret;
-
-    char x[BufferLength] = "\0";
-    char code[BufferLength] = "\0";
-    char productName[BufferLength] = "\0";
-
-    SQLLEN indicator1;
-    SQLLEN indicator2;
-    SQLLEN indicator3;
-
-    SQLLEN paramIndicator = SQL_NTS;
-
-    int i = 0;
-
-    SQLINTEGER offset;
-
-    int page = 0;
-    int has_next;
-    char option;
-
-    SQLLEN paramIndicator = SQL_NTS;
-    SQLLEN offsetIndicator;
-
-    /* Add % before and after the name */
-    x[0] = '%';
-
-    while (name[i] != '\0' && i < BufferLength - 3) {
-        x[i + 1] = name[i];
-        i++;
-    }
-
-    x[i + 1] = '%';
-    x[i + 2] = '\0';
-
-    /* Allocate a statement handle */
-    ret = SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLAllocHandle", dbc, SQL_HANDLE_DBC);
-        return EXIT_FAILURE;
-    }
-
-    /* Prepare query */
-    ret = SQLPrepare(stmt, (SQLCHAR *)
-        "SELECT productCode, productName "
-        "FROM products "
-        "WHERE productName LIKE ? "
-        "ORDER BY productCode",
-        SQL_NTS);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLPrepare", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Bind parameter */
-    ret = SQLBindParameter(stmt, 1, SQL_PARAM_INPUT,
-        SQL_C_CHAR, SQL_VARCHAR,
-        BufferLength, 0,
-        x, BufferLength, &paramIndicator);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindParameter", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Execute query */
-    ret = SQLExecute(stmt);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Bind columns */
-    ret = SQLBindCol(stmt, 1, SQL_C_CHAR,
-        code, sizeof(code), &indicator1);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    ret = SQLBindCol(stmt, 2, SQL_C_CHAR,
-        productName, sizeof(productName), &indicator2);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        odbc_extract_error("SQLBindCol", stmt, SQL_HANDLE_STMT);
-        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-        return EXIT_FAILURE;
-    }
-
-    /* Pagination */
-    while (1) {
-
-        offset = page * 10;
-        i = 0;
-        has_next = 0;
-
-        ret = SQLExecute(stmt);
-
-        if (!SQL_SUCCEEDED(ret)) {
-            odbc_extract_error("SQLExecute", stmt, SQL_HANDLE_STMT);
-            break;
-        }
-
-        printf("\nProducts found:\n");
-        printf("-----------------------------------\n");
-
-        /* Display the first 10 products */
-        while (i < 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (ret == SQL_NO_DATA) {
-                break;
-            }
-
-            if (!SQL_SUCCEEDED(ret)) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                break;
-            }
-
-            printf("%s | %s\n", code, productName);
-
-            i++;
-        }
-
-        if (!SQL_SUCCEEDED(ret) && ret != SQL_NO_DATA) {
-            break;
-        }
-
-        /* Check whether an 11th product exists */
-        if (i == 10) {
-
-            ret = SQLFetch(stmt);
-
-            if (SQL_SUCCEEDED(ret)) {
-                has_next = 1;
-            }
-            else if (ret != SQL_NO_DATA) {
-                odbc_extract_error("SQLFetch", stmt, SQL_HANDLE_STMT);
-                break;
-            }
-        }
-
-        if (i == 0) {
-            printf("No products found.\n");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("-----------------------------------\n");
-
-        if (page > 0) {
-            printf("< Previous page");
-        }
-
-        if (page > 0 && has_next) {
-            printf(" | ");
-        }
-
-        if (has_next) {
-            printf("> Next page");
-        }
-
-        if (page == 0 && !has_next) {
-            printf("No more pages.\n");
-            SQLCloseCursor(stmt);
-            break;
-        }
-
-        printf("\nEnter an option (<, > or q): ");
-        scanf(" %c", &option);
-
-        SQLCloseCursor(stmt);
-
-        if (option == '>' && has_next) {
-            page++;
-        }
-        else if (option == '<' && page > 0) {
-            page--;
-        }
-        else {
-            break;
-        }
-    }
-
-    /* Free resources */
-    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-
+    printf("\n");
     return EXIT_SUCCESS;
 }
