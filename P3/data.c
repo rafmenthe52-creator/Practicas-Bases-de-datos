@@ -32,9 +32,9 @@ and false otherwise .
 bool createTable(const char *tableName)
 {
   FILE *f;
-  int firstDeleted = -1;
+  int firstDeleted = -1, len = strlen(tableName);
 
-  if (tableName == NULL)
+  if (tableName == NULL || len < 4 || strcmp(tableName + len - 4, ".dat") != 0)
     return false;
 
   /* Try opening the existing file */
@@ -55,8 +55,48 @@ bool createTable(const char *tableName)
       return false;
     }
   }
+}
 
-bool createIndex (const char *indexName);
+
+bool createIndex(const char *tableName)
+{
+  FILE *f;
+  char indexName[260];
+  int header[2] = {-1, -1};
+  int len;
+
+  if (tableName == NULL)
+    return false;
+
+  len = strlen(tableName);
+
+  if (len < 4 || strcmp(tableName + len - 4, ".dat") != 0)
+    return false;
+
+  strcpy(indexName, tableName);
+  strcpy(indexName + len - 4, ".idx");
+
+  /* Check if index already exists */
+  f = fopen(indexName, "rb");
+
+  if (f == NULL)
+  {
+    /* Create index file */
+    f = fopen(indexName, "wb");
+
+    if (f == NULL)
+      return false;
+
+    if (fwrite(header, sizeof(int), 2, f) != 2)
+    {
+      fclose(f);
+      return false;
+    }
+  }
+
+  return fclose(f) == 0;
+}
+
 bool findKey (const char *book_id, const char *indexName, int *nodeIDOrDataOffset);
 bool addTableEntry (Book *book, const char *tableName, const char *indexName ) ;
 bool addIndexEntry (char *book_id , int bookOffset, const char *indexName ) ;
