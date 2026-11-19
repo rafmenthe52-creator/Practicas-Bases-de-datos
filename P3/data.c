@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
 #define NO DELETED REGISTERS =1
 #define INDEX HEADER SIZE 8
@@ -6,21 +7,21 @@
 #define DATA HEADER SIZE 4
 /*primary key s i z e */
 #define PK_SIZE 4
-/*Our table i s going to contain a s t r i n g ( t i t l e ) and
-an alphanumeric primary key ( book id )
+/*Our table i s going to contain a string (title) and
+an alphanumeric primary key (book_id)
 */
 typedef struct book {
   char book_id [PK_SIZE] ; /*primary key */
-  size_t title_len ; /*t i t l e length */
-  char *title; /*s t r i n g to be saved in the database */
+  size_t title_len ; /*title length */
+  char *title; /*string to be saved in the database */
 }Book ;
 /*Note that in general a struct cannot be used to
 handle tables in databases since the table structure
 is unknown at compilation time.
 */
 typedef struct node {
-  char book_id [ PK_SIZE ] ;
-  int left , right , parent , offset;
+  char book_id [PK_SIZE] ;
+  int left, right, parent, offset;
 }Node;
 /*Function prototypes .
 see function descriptions in the following sections
@@ -97,7 +98,30 @@ bool createIndex(const char *tableName)
   return fclose(f) == 0;
 }
 
-bool findKey (const char *book_id, const char *indexName, int *nodeIDOrDataOffset);
-bool addTableEntry (Book *book, const char *tableName, const char *indexName ) ;
+bool findKey (const char *book_id, const char *indexName, int *nodeIDOrDataOffset) {
+  FILE *f;
+
+  if (book_id == NULL||indexName == NULL||nodeIDOrDataOffset == NULL) {
+    return false;
+  }
+
+  if (!(f = fopen(indexName, "rb"))) {
+    return false;
+  }
+
+
+}
+bool addTableEntry (Book *book, const char *tableName, const char *indexName )
+{
+  FILE *Index, *Table;
+  if(book == NULL || tableName == NULL || indexName == NULL)
+    return false;
+
+  Index = fopen(indexName, "rb");
+  
+  /* Leer si tiene espacios vacios */
+
+
+}
 bool addIndexEntry (char *book_id , int bookOffset, const char *indexName ) ;
 void printTree ( size_t level, const char *indexName) ;
